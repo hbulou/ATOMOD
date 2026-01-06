@@ -1,0 +1,6 @@
+ATOMOD.py
+pyproject.toml
+ATOMOD.egg-info/PKG-INFO
+ATOMOD.egg-info/SOURCES.txt
+ATOMOD.egg-info/dependency_links.txt
+ATOMOD.egg-info/top_level.txt
