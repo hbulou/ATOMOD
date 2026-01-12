@@ -1,4 +1,10 @@
 # --- Python ---
 __pycache__/
 *.py[cod]
-
+slurm*out
+data/
+bulou/
+*.sh
+*.h5
+*.xyz
+*.org

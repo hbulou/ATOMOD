@@ -1,31 +1,49 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-import torch
+#os.environ["CUDA_VISIBLE_DEVICES"] = ""
+#import torch
 import tensorflow as tf
+#import torch
 from tensorflow.keras.models import Model,load_model
 from ATOMOD.ATOMOD import CustomDataGenerator,UNet,ImageSamplingCallback
 class NN:
     def __init__(self):
-        self.batch_size=16
+        self.batch_size=64
         self.epochs=200000
         #self.H=256
         #self.W=256
         self.H=64
         self.W=64
-        self.composition=['Fe','Pt']
+        #self.composition=['Fe','Pt']
+        self.composition=['Rh','Ir']
         self.nz=10
-        self.restart=False
+        self.restart=True
         self.ATOMOD_Training_starting_model="unet_atomod_trained_last.h5"
         self.initial_epochs=1
-        self.device=None
+        self.device="cuda"
     def ATOMOD_training(self):
         print("ATOMOD_training")
+        # Liste les GPU reconnus par TensorFlow
+        gpus = tf.config.list_physical_devices('GPU')
+
+        if gpus:
+            print(f"{len(gpus)} GPU(s) détecté(s) :")
+            for gpu in gpus:
+                print(f" - {gpu}")
+                self.device="cuda"
+        else:
+            print("Aucun GPU détecté, utilisation du CPU.")
+            self.device="cpu"
+
+
+
+
+
         #self.image_paths = sorted(glob(os.path.join(image_dir, "*")))
         #if len(self.image_paths) == 0:
         #    raise ValueError(f"Aucune image trouvée dans {image_dir}")
         device=self.device
-        if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+        #if device is None:
+        #    device = "cuda" if torch.cuda.is_available() else "cpu"
         print("Utilisation de l'appareil :", device)
         
                     
@@ -75,28 +93,38 @@ class NN:
         )
 
         print("🆕 Création d'un nouveau modèle")
-        self.model=UNet(self.H,self.W,len(self.composition)*self.nz)
+        strategy = tf.distribute.MirroredStrategy()
+        print(f"Nombre de GPU utilisés : {strategy.num_replicas_in_sync}")
+        with strategy.scope():
+
+            self.model=UNet(self.H,self.W,len(self.composition)*self.nz)
                 # --- 3. Compilation du Modèle ---
-        if self.restart:
-            model_path = self.ATOMOD_Training_starting_model
-            if os.path.exists(model_path):
-                print("🔄 Reprise de l'entraînement depuis", model_path)
-                self.model = load_model(model_path, compile=False)
+            if self.restart:
+                model_path = self.ATOMOD_Training_starting_model
+                if os.path.exists(model_path):
+                    print("🔄 Reprise de l'entraînement depuis", model_path)
+                    self.model = load_model(model_path, compile=False)
 
                 
-        self.model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4, clipnorm=1.0),
-            # Perte pour N classifications binaires indépendantes (H, W, N)
-            loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
-            metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)],
-            run_eagerly=True
-        )
+            self.model.compile(
+                optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4, clipnorm=1.0),
+                # Perte pour N classifications binaires indépendantes (H, W, N)
+                loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+                metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)],
+                run_eagerly=True
+            )
         initial_epochs=self.initial_epochs
         self.model.summary() # Décommenter pour voir l'architecture et la forme de sortie (None, H, W, 10)
 
         # --- 4. Entraînement ---
+        tf.debugging.set_log_device_placement(True)
+        print("=== SÉCURITÉ GPU ===")
+        print("TF détecte :", tf.config.list_physical_devices('GPU'))
+        #print("PyTorch détecte :", torch.cuda.is_available())
+        #if torch.cuda.is_available():
+        #    print("Nom du GPU :", torch.cuda.get_device_name(0))
+        print("====================")
         print("Démarrage de l'entraînement...")
-
         # --- Préparation du Callback pour la Visualisation ---
         # 1. Extraire un échantillon du générateur de validation
         # On récupère le premier lot (batch) du générateur de validation
@@ -143,6 +171,17 @@ class NN:
         #
         # fit() encapsule tout cela automatiquement.
 
+        # --- VÉRIFICATION DU CHARGEMENT ---
+        print("\n--- TEST PRÉ-ENTRAÎNEMENT ---")
+        print("Vérification des performances actuelles du modèle...")
+
+        # On fait une évaluation sur un petit lot de validation AVANT d'entraîner
+        # Cela doit vous donner une loss proche de celle de votre dernier run
+        loss_initiale = self.model.evaluate(x_val, y_val, batch_size=GLOBAL_BATCH_SIZE, steps=5, verbose=1)
+
+        print(f"Loss au démarrage : {loss_initiale}")
+        print("-----------------------------\n")
+        
         history = self.model.fit(
             train_generator,
             steps_per_epoch=len(train_generator),
@@ -167,5 +206,20 @@ class NN:
 # ##########################################################################################
 # Point d’entrée du programme
 if __name__ == "__main__":
+
+    # 1. Vérification simple (booléen)
+    #print(f"CUDA disponible : {torch.cuda.is_available()}")
+
+    # 2. Configuration du device dynamique
+    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #print(f"L'entraînement se fera sur : {device}")
+
+    # 3. Informations sur la carte (optionnel)
+    #if torch.cuda.is_available():
+    #    print(f"Nom du GPU : {torch.cuda.get_device_name(0)}")
+
+
+
+    
     FePt=NN()
     FePt.ATOMOD_training()

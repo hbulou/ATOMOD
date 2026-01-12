@@ -9,17 +9,13 @@ import abtem
 import ase
 import matplotlib.pyplot as plt
 import numpy as np
-def main():
-    radius=5.0
-    seed=1
-    composition=['Pt','Pd']
-    N=20
-    TEM_output_dir="essai/train/images"
+def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
+    TEM_output_dir="data/train/images"
     os.makedirs(TEM_output_dir, exist_ok=True)
-    prob_output_dir = "essai/train/prob_maps"
+    prob_output_dir = "data/train/prob_maps"
     os.makedirs(prob_output_dir, exist_ok=True)
     
-    Bulk=Crystal(Nx=N,Ny=N,Nz=N)
+    Bulk=Crystal(elt=composition[0],Nx=N,Ny=N,Nz=N)
     Bulk.origin_at_mass_center()
     molecule=Bulk.transform(radius=radius)
             
@@ -189,8 +185,6 @@ def main():
 
 
 
-    output_dir = "essai/train/prob_maps"
-    os.makedirs(output_dir, exist_ok=True)
     xmin=0.0
     ymin=0.0
     zmin=0.0
@@ -249,7 +243,11 @@ def main():
             
             #plt.savefig(filename, dpi=150, bbox_inches='tight')
             plt.close(fig)
-
+    del molecule
+    del atoms
+def main():
+    for seed in range(128,129):
+        mk_TEM(seed,composition=['Rh','Ir'])
 # ##########################################################################################
 # Point d’entrée du programme
 if __name__ == "__main__":

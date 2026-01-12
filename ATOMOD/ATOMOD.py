@@ -239,12 +239,17 @@ class ImageSamplingCallback(tf.keras.callbacks.Callback):
             
     def on_epoch_end(self, epoch, logs=None):
         freq_img_save=self.freq_img_save
+
+        
         print(self.val_IDs[0])
         image_path=f"data/train/images/{self.val_IDs[0]}.png"
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
         if img is None:
             raise FileNotFoundError(f"Impossible de charger l'image : {image_path}")
         #img = img.astype(np.float32) / 255.0
+
+        # --- REDIMENSIONNEMENT ---
         if img.shape[0] != self.H or img.shape[1] != self.W:
             img = cv2.resize(img, (self.W, self.H))
 
@@ -252,10 +257,29 @@ class ImageSamplingCallback(tf.keras.callbacks.Callback):
         #filename = os.path.join(self.output_dir, f"INPUT_{self.val_IDs[0]}.png")
         #cv2.imwrite(filename, img)
         
+        # --- NORMALISATION (Important pour les réseaux de neurones) ---
+        # On passe de [0, 255] (entiers) à [0.0, 1.0] (flottants)
+        img = img.astype(np.float32) / 255.0
+        
+        # --- CORRECTION DES DIMENSIONS (SHAPE) ---
+        # 1. Si l'image est en 2D (64, 64), on ajoute le canal -> (64, 64, 1)
+        if len(img.shape) == 2:
+            img = np.expand_dims(img, axis=-1)
+            
+        # 2. On ajoute la dimension du Batch -> (1, 64, 64, 1)
+        img = np.expand_dims(img, axis=0)
 
-        img=np.expand_dims(img,axis=-1)
-        img=np.expand_dims(img,axis=0)
-        prediction = self.model.predict(img)
+        print(f"Debug: Shape envoyée au predict: {img.shape}") # Doit afficher (1, 64, 64, 1)
+        #img=np.expand_dims(img,axis=-1)
+        #img=np.expand_dims(img,axis=0)
+        
+        # Appel direct (call) au lieu de predict. C'est plus rapide pour 1 image et évite le bug de distribution.
+        # training=False est important pour désactiver le Dropout/BatchNorm si vous en avez.
+        prediction = self.model(img, training=False).numpy()
+
+
+        
+        #prediction = self.model.predict(img)
         prediction_map=prediction[0]
         idx_channel=0
         for sp in self.composition:
@@ -304,7 +328,10 @@ class CustomDataGenerator(tf.keras.utils.Sequence):
                  batch_size=32,
                  shuffle=True,
                  composition=['Pt'],
-                 nz=10):
+                 nz=10,
+                 **kwargs):
+
+        super().__init__(**kwargs)
         self.list_IDs = list_IDs       # Liste des noms de fichiers de base (ex: ['img_001', 'img_002', ...])
         self.data_path = data_path     # Chemin racine vers les dossiers 'images' et 'masks'
         self.target_size = target_size # (H, W)
