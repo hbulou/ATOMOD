@@ -254,14 +254,73 @@ def main():
     """Point d'entrée principal du programme."""
     # Configuration personnalisée (optionnel)
     custom_config = {
-        'composition': ['Rh', 'Ir'],
         'batch_size': 64,
         'epochs': 200000,
-        'learning_rate': 1e-4
+        'height': 64,
+        'width': 64,
+        'composition': ['Rh', 'Ir'],
+        'nz': 10,
+        'restart': True,
+        'checkpoint_path': 'unet_atomod_trained_last.h5',
+        'initial_epoch': 0,
+        'learning_rate': 1e-4,
+        'data_root': 'data/train',
+        'output_dir': 'data/train/intermediate',
+        'logs_dir': 'logs',
+        'save_best_only': True
     }
-    
+    custom_config2 = {
+        'batch_size': 128,
+        'epochs': 200000,
+        'height': 64,
+        'width': 64,
+        'composition': ['Rh', 'Ir'],
+        'nz': 10,
+        'restart': True,
+        'checkpoint_path': 'unet_atomod_trained_last2.h5',
+        'initial_epoch': 0,
+        'learning_rate': 1e-4,
+        'data_root': 'data/train',
+        'output_dir': 'data2/train/intermediate',
+        'logs_dir': 'logs2',
+        'save_best_only': True
+    }
+
+    custom_config4 = {
+        'batch_size': 256,
+        'epochs': 200000,
+        'height': 64,
+        'width': 64,
+        'composition': ['Rh', 'Ir'],
+        'nz': 10,
+        'restart': True,
+        'checkpoint_path': 'unet_atomod_trained_last4.h5',
+        'initial_epoch': 0,
+        'learning_rate': 1e-4,
+        'data_root': 'data/train',
+        'output_dir': 'data4/train/intermediate',
+        'logs_dir': 'logs4',
+        'save_best_only': True
+    }
+    custom_config16 = {
+        'batch_size': 1024,
+        'epochs': 200000,
+        'height': 64,
+        'width': 64,
+        'composition': ['Rh', 'Ir'],
+        'nz': 10,
+        'restart': False,
+        'checkpoint_path': 'unet_atomod_trained_last16.h5',
+        'initial_epoch': 0,
+        'learning_rate': 1e-4,
+        'data_root': 'data/train',
+        'output_dir': 'data16/train/intermediate',
+        'logs_dir': 'logs16',
+        'save_best_only': True
+    }
+
     # Création et lancement de l'entraîneur
-    trainer = ATOMODTrainer(config=custom_config)
+    trainer = ATOMODTrainer(config=custom_config16)
     history = trainer.train()
     
     print("\n🎉 PROCESSUS TERMINÉ!")

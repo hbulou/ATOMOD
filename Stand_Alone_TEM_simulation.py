@@ -246,7 +246,7 @@ def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
     del molecule
     del atoms
 def main():
-    for seed in range(128,129):
+    for seed in range(2051,4097):
         mk_TEM(seed,composition=['Rh','Ir'])
 # ##########################################################################################
 # Point d’entrée du programme
