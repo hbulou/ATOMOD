@@ -1,29 +1,30 @@
 import os
-import glob
-import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping
-from tensorflow.keras import mixed_precision
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, CSVLogger
+from ATOMOD.ATOMOD import CustomDataGenerator, UNet, ImageSamplingCallback
 
-# --- OPTIMISATION 1 : MIXED PRECISION POUR H100 ---
-# Utilise float16 pour les calculs, float32 pour la stabilité.
-# Sur H100, cela booste énormément les perfs.
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_global_policy(policy)
-
-from ATOMOD.ATOMOD import UNet, ImageSamplingCallback 
-# Note : On n'utilise plus CustomDataGenerator pour l'entraînement, mais tf.data
 
 class ATOMODTrainer:
+    """Entraîneur pour le modèle ATOMOD UNet."""
+    
     def __init__(self, config=None):
+        """
+        Initialise le trainer avec une configuration.
+        
+        Args:
+            config (dict, optional): Dictionnaire de configuration personnalisée
+        """
+        # Configuration par défaut
         self.config = {
-            'batch_size': 1024, # H100 aime les gros batchs
+            'batch_size': 32,
             'epochs': 200000,
             'height': 64,
             'width': 64,
             'composition': ['Rh', 'Ir'],
             'nz': 10,
+            'n_train_images': 2024,  # Première moitié pour train
+            'n_val_images': 2024,     # Deuxième moitié pour val
             'restart': True,
             'checkpoint_path': 'unet_atomod_trained_last.h5',
             'initial_epoch': 0,
@@ -31,83 +32,117 @@ class ATOMODTrainer:
             'data_root': 'data/train',
             'output_dir': 'data/train/intermediate',
             'logs_dir': 'logs',
-            'save_best_only': True
+            'checkpoint_dir': 'checkpoints',
+            'save_best_only': False,
+            'early_stopping_patience': 2000,
+            'checkpoint_freq': 100
         }
+        
+        # Mise à jour avec la config personnalisée si fournie
         if config:
             self.config.update(config)
         
+        # Création des dossiers nécessaires
+        os.makedirs(self.config['checkpoint_dir'], exist_ok=True)
+        os.makedirs(self.config['logs_dir'], exist_ok=True)
+        os.makedirs(self.config['output_dir'], exist_ok=True)
+        
         self.model = None
+        self.device = None
         self.strategy = None
-        self.global_batch_size = None
-
+    
     def setup_gpu(self):
+        """Configure et détecte les GPU disponibles avec optimisations."""
         gpus = tf.config.list_physical_devices('GPU')
+        
         if gpus:
-            print(f"✅ {len(gpus)} GPU(s) détecté(s)")
-            self.strategy = tf.distribute.MirroredStrategy()
-            # Ajustement du batch size global
-            self.global_batch_size = self.config['batch_size'] * self.strategy.num_replicas_in_sync
-            print(f"🚀 Global Batch Size: {self.global_batch_size}")
+            print(f"✅ {len(gpus)} GPU(s) détecté(s):")
+            for gpu in gpus:
+                print(f"   - {gpu}")
+            self.device = "cuda"
+            
+            # OPTIMISATION 1: Croissance mémoire dynamique
+            try:
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                print("   ✓ Memory growth activé")
+            except RuntimeError as e:
+                print(f"   ⚠️  Erreur lors de la configuration GPU: {e}")
+            
+            # OPTIMISATION 2: XLA (Accelerated Linear Algebra)
+            # Compile les graphes TensorFlow en kernels optimisés
+            # Gain typique: 10-30% sur GPU
+            tf.config.optimizer.set_jit(True)
+            print("   ✓ XLA JIT compilation activée")
+            
+            # OPTIMISATION 3: Parallelisme intra-op et inter-op
+            # Pour mieux utiliser les CPU threads pendant les transferts GPU
+            tf.config.threading.set_intra_op_parallelism_threads(8)
+            tf.config.threading.set_inter_op_parallelism_threads(4)
+            print("   ✓ Threading optimisé (intra=8, inter=4)")
+            
         else:
-            self.strategy = tf.distribute.get_strategy() # Default (CPU)
-            self.global_batch_size = self.config['batch_size']
-
-    def load_image_tf(self, file_path):
-        """
-        Fonction de chargement optimisée TensorFlow (remplace __getitem__ du générateur).
-        À ADAPTER : Cette fonction suppose que l'image est l'entrée ET la sortie (Autoencoder).
-        Si vos labels sont différents, modifiez cette fonction.
-        """
-        # 1. Lecture du fichier
-        img_raw = tf.io.read_file(file_path)
-        # 2. Décodage (adaptez channels=1 ou 3 selon vos images)
-        img = tf.io.decode_png(img_raw, channels=1) 
-        # 3. Conversion float32 et normalisation
-        img = tf.image.convert_image_dtype(img, tf.float32) # Convertit [0,255] -> [0.0, 1.0]
-        # 4. Resize (au cas où)
-        img = tf.image.resize(img, [self.config['height'], self.config['width']])
+            print("⚠️  Aucun GPU détecté, utilisation du CPU")
+            self.device = "cpu"
         
-        # --- LOGIQUE DE CIBLE (LABEL) ---
-        # Si votre réseau doit prédire autre chose que l'image d'entrée,
-        # vous devez générer la cible ici. Pour l'instant, je suppose Input = Target.
-        # Si vous avez besoin de générer des canaux spécifiques comme dans CustomDataGenerator,
-        # vous devrez peut-être utiliser tf.py_function (un peu plus lent mais flexible).
-        return img, img 
-
-    def create_tf_dataset(self, file_patterns, is_training=True):
-        """Crée un pipeline tf.data haute performance."""
-        # Récupération de la liste des fichiers
-        files = glob.glob(file_patterns)
+        return self.device
+    
+    def create_data_generators(self):
+        """Crée les générateurs de données pour l'entraînement et la validation."""
+        batch_size = self.config['batch_size']
+        n_train = self.config['n_train_images']
+        n_val = self.config['n_val_images']
         
-        # Création du dataset de base
-        dataset = tf.data.Dataset.from_tensor_slices(files)
+        # Génération des IDs pour l'entraînement (première moitié)
+        # img_0000.png à img_2023.png
+        train_IDs = [f'img_{i:04d}' for i in range(n_train)]
         
-        # Chargement et prétraitement parallèle (C++ multithreading)
-        dataset = dataset.map(self.load_image_tf, num_parallel_calls=tf.data.AUTOTUNE)
+        # Génération des IDs pour la validation (deuxième moitié)
+        # img_2024.png à img_4047.png
+        val_IDs = [f'img_{i:04d}' for i in range(n_train, n_train + n_val)]
         
-        # --- OPTIMISATION 2 : CACHING ---
-        # Vos images sont petites (64x64). On garde TOUT en RAM après la 1ère epoch.
-        # Plus aucune lecture disque après ça.
-        dataset = dataset.cache()
+        print(f"📊 Entraînement: {len(train_IDs)} images (img_0000 à img_{n_train-1:04d})")
+        print(f"📊 Validation: {len(val_IDs)} images (img_{n_train:04d} à img_{n_train+n_val-1:04d})")
+        print(f"📦 Batch size: {batch_size}")
+        print(f"🔄 Steps per epoch train: {len(train_IDs) // batch_size}")
+        print(f"🔄 Steps per epoch val: {len(val_IDs) // batch_size}")
         
-        if is_training:
-            dataset = dataset.shuffle(buffer_size=10000)
+        # Générateur d'entraînement
+        train_generator = CustomDataGenerator(
+            train_IDs,
+            self.config['data_root'],
+            (self.config['height'], self.config['width']),
+            batch_size,
+            shuffle=True,
+            composition=self.config['composition'],
+            nz=self.config['nz']
+        )
         
-        # Batching
-        dataset = dataset.batch(self.global_batch_size)
+        # Générateur de validation
+        val_generator = CustomDataGenerator(
+            val_IDs,
+            self.config['data_root'],
+            (self.config['height'], self.config['width']),
+            batch_size,
+            shuffle=False,
+            composition=self.config['composition'],
+            nz=self.config['nz']
+        )
         
-        # --- OPTIMISATION 3 : PREFETCHING ---
-        # Prépare le batch suivant pendant que le GPU travaille
-        dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-        
-        return dataset, len(files)
-
+        return train_generator, val_generator, val_IDs
+    
     def build_model(self):
+        """Construit ou charge le modèle UNet."""
+        # Configuration multi-GPU
+        self.strategy = tf.distribute.MirroredStrategy()
         print(f"🔧 Distribution sur {self.strategy.num_replicas_in_sync} GPU(s)")
         
         with self.strategy.scope():
+            # Calcul du nombre de canaux de sortie
             output_channels = len(self.config['composition']) * self.config['nz']
+            print(f"📐 Output channels: {output_channels} ({len(self.config['composition'])} espèces × {self.config['nz']} couches)")
             
+            # Chargement ou création du modèle
             if self.config['restart'] and os.path.exists(self.config['checkpoint_path']):
                 print(f"📥 Chargement du modèle depuis {self.config['checkpoint_path']}")
                 self.model = load_model(self.config['checkpoint_path'], compile=False)
@@ -119,108 +154,212 @@ class ATOMODTrainer:
                     output_channels
                 )
             
-            # Note: Avec mixed_precision, l'output doit être float32 pour la stabilité numérique
-            # Assurez-vous que la dernière couche de UNet a dtype='float32' si vous utilisez softmax/sigmoid
-            
+            # Compilation du modèle
             self.model.compile(
-                optimizer=tf.keras.optimizers.Adam(learning_rate=self.config['learning_rate']),
+                optimizer=tf.keras.optimizers.Adam(
+                    learning_rate=self.config['learning_rate'],
+                    clipnorm=1.0
+                ),
                 loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
                 metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)]
             )
+        
+        self.model.summary()
         return self.model
-
+    
+    def create_callbacks(self, val_generator, val_IDs):
+        """Crée la liste des callbacks pour l'entraînement."""
+        callbacks = []
+        
+        # CALLBACK 1: Sauvegarde régulière
+        # Note: On ne peut pas utiliser {val_loss} avec save_freq car val_loss
+        # n'est disponible qu'à la fin de l'epoch, pas pendant
+        checkpoint_callback = ModelCheckpoint(
+            filepath=os.path.join(
+                self.config['checkpoint_dir'],
+                'unet_epoch_{epoch:06d}.h5'
+            ),
+            save_best_only=False,
+            save_freq=self.config['checkpoint_freq'],  # Tous les N epochs
+            verbose=1
+        )
+        callbacks.append(checkpoint_callback)
+        
+        # CALLBACK 2: Sauvegarde du meilleur modèle séparément
+        best_checkpoint = ModelCheckpoint(
+            filepath='best_model.h5',
+            save_best_only=True,
+            monitor='val_loss',
+            mode='min',
+            verbose=1
+        )
+        callbacks.append(best_checkpoint)
+        
+        # CALLBACK 3: TensorBoard optimisé pour long training
+        tensorboard_callback = TensorBoard(
+            log_dir=self.config['logs_dir'],
+            histogram_freq=0,  # Désactivé pour performance
+            write_graph=False,  # Graph déjà connu, pas besoin
+            update_freq='epoch',
+            profile_batch=0  # Pas de profiling (très lourd)
+        )
+        callbacks.append(tensorboard_callback)
+        
+        # CALLBACK 4: CSV Logger pour analyse facile
+        csv_logger = CSVLogger(
+            filename=os.path.join(self.config['logs_dir'], 'training_history.csv'),
+            separator=',',
+            append=True
+        )
+        callbacks.append(csv_logger)
+        
+        # CALLBACK 5: Reduce LR on Plateau
+        reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.5,
+            patience=500,  # Adapté pour long training
+            min_lr=1e-7,
+            verbose=1
+        )
+        callbacks.append(reduce_lr)
+        
+        # CALLBACK 6: Early stopping avec patience adaptée
+        early_stopping = EarlyStopping(
+            monitor='val_loss',
+            patience=self.config['early_stopping_patience'],
+            restore_best_weights=True,
+            verbose=1
+        )
+        callbacks.append(early_stopping)
+        
+        # CALLBACK 7: Visualisation personnalisée
+        try:
+            sample_batch_input, _ = val_generator[0]
+            sample_input_for_callback = sample_batch_input[0:1]
+            
+            image_sampling_callback = ImageSamplingCallback(
+                sample_input_image=sample_input_for_callback,
+                class_channel_index=0,
+                val_IDs=val_IDs[:10],  # Prend seulement les 10 premiers pour économiser du temps
+                nz=self.config['nz'],
+                composition=self.config['composition'],
+                output_dir=self.config['output_dir'],
+                H=self.config['height'],
+                W=self.config['width']
+            )
+            callbacks.append(image_sampling_callback)
+        except Exception as e:
+            print(f"⚠️  Impossible de créer ImageSamplingCallback: {e}")
+        
+        return callbacks
+    
+    def evaluate_initial_performance(self, val_generator):
+        """Évalue les performances initiales du modèle."""
+        print("\n" + "="*50)
+        print("📊 ÉVALUATION PRÉ-ENTRAÎNEMENT")
+        print("="*50)
+        
+        try:
+            initial_metrics = self.model.evaluate(
+                val_generator,
+                steps=min(5, len(val_generator)),
+                verbose=1
+            )
+            print(f"✅ Métriques initiales: Loss={initial_metrics[0]:.4f}, "
+                  f"Accuracy={initial_metrics[1]:.4f}")
+        except Exception as e:
+            print(f"⚠️  Erreur lors de l'évaluation initiale: {e}")
+        
+        print("="*50 + "\n")
+    
     def train(self):
+        """Lance l'entraînement complet du modèle."""
+        print("\n" + "="*60)
+        print("🚀 DÉMARRAGE DE L'ENTRAÎNEMENT ATOMOD")
+        print("="*60 + "\n")
+        
+        # 1. Configuration GPU
         self.setup_gpu()
         
-        # Chemins des données (Adaptez le pattern *.png selon votre structure)
-        # On suppose ici que data_root contient toutes les images
-        all_files_pattern = os.path.join(self.config['data_root'], "images", "*.png")
+        # 2. Création des générateurs de données
+        train_gen, val_gen, val_IDs = self.create_data_generators()
         
-        # On divise manuellement train/val car tf.data ne le fait pas nativement comme Keras Gen
-        all_files = glob.glob(all_files_pattern)
-        val_split = int(len(all_files) * 0.1) # 10% validation par exemple
-        train_files = all_files[val_split:]
-        val_files = all_files[:val_split]
-        
-        print(f"📊 Entraînement: {len(train_files)} images")
-        print(f"📊 Validation: {len(val_files)} images")
-
-        # Création des datasets optimisés
-        # Note : On passe la liste des fichiers directement
-        train_ds, n_train = self.create_tf_dataset(os.path.join(self.config['data_root'], "images", "*.png"), is_training=True)
-        val_ds, n_val = self.create_tf_dataset(os.path.join(self.config['data_root'], "images", "*.png"), is_training=False)
-        # ATTENTION: Ci-dessus j'ai remis le glob pour l'exemple, mais idéalement passez les listes train_files/val_files
-        # Pour faire simple avec votre structure actuelle, je recrée un dataset à partir de slices
-        train_ds = tf.data.Dataset.from_tensor_slices(train_files)
-        train_ds = train_ds.map(self.load_image_tf, num_parallel_calls=tf.data.AUTOTUNE).cache().shuffle(10000).batch(self.global_batch_size).prefetch(tf.data.AUTOTUNE)
-        
-        val_ds = tf.data.Dataset.from_tensor_slices(val_files)
-        val_ds = val_ds.map(self.load_image_tf, num_parallel_calls=tf.data.AUTOTUNE).cache().batch(self.global_batch_size).prefetch(tf.data.AUTOTUNE)
-
+        # 3. Construction du modèle
         self.build_model()
         
-        # Callbacks
-        callbacks = [
-            ModelCheckpoint(
-                filepath='checkpoints/unet_epoch_{epoch:04d}.h5',
-                save_best_only=self.config['save_best_only'],
-                monitor='val_loss', mode='min', verbose=1
-            ),
-            TensorBoard(log_dir=self.config['logs_dir'], update_freq='epoch')
-        ]
+        # 4. Évaluation initiale
+        self.evaluate_initial_performance(val_gen)
         
-        # Pour ImageSamplingCallback, il faut extraire une image du dataset
-        # C'est un peu plus délicat avec tf.data, on prend le premier batch
-        try:
-            for img_batch, _ in val_ds.take(1):
-                sample_input = img_batch[0:1] # Garde dims (1, 64, 64, 1)
-                # Note: val_IDs n'est plus pertinent ici, on passe des IDs fictifs ou on adapte le callback
-                dummy_ids = [os.path.basename(f) for f in val_files[:1]]
-                
-                callbacks.append(ImageSamplingCallback(
-                    sample_input_image=sample_input.numpy(), # Convertir en numpy pour le callback
-                    class_channel_index=0,
-                    val_IDs=dummy_ids,
-                    nz=self.config['nz'],
-                    composition=self.config['composition'],
-                    output_dir=self.config['output_dir'],
-                    H=self.config['height'], W=self.config['width']
-                ))
-        except Exception as e:
-            print(f"⚠️ Callback visualisation désactivé: {e}")
-
+        # 5. Création des callbacks
+        callbacks = self.create_callbacks(val_gen, val_IDs)
+        
+        # 6. Entraînement
         print("🏋️  Début de l'entraînement...")
+        print(f"   - Sauvegarde tous les {self.config['checkpoint_freq']} epochs")
+        print(f"   - Early stopping après {self.config['early_stopping_patience']} epochs sans amélioration\n")
+        
         history = self.model.fit(
-            train_ds,
+            train_gen,
+            steps_per_epoch=len(train_gen),
             epochs=self.config['epochs'],
             initial_epoch=self.config['initial_epoch'],
-            validation_data=val_ds,
+            validation_data=val_gen,
+            validation_steps=len(val_gen),
             callbacks=callbacks,
             verbose=1
         )
         
-        self.model.save('unet_atomod_trained_final.h5')
+        # 7. Sauvegarde finale
+        final_model_path = 'unet_atomod_trained_final.h5'
+        self.model.save(final_model_path)
+        print(f"\n✅ Entraînement terminé!")
+        print(f"💾 Modèle sauvegardé: {final_model_path}")
+        print(f"📊 Historique CSV: {os.path.join(self.config['logs_dir'], 'training_history.csv')}")
+        
         return history
 
+
 def main():
-    # Config adaptée pour H100
-    custom_config = {
-        'batch_size': 256, # Par GPU -> Total = 1024 sur 4 GPU
+    """Point d'entrée principal du programme."""
+    
+    # Configuration optimisée pour 4 GPU P100 (batch_size=64)
+    config = {
+        'batch_size': 64,  # 2024/64 = 31.6 → 31 steps par epoch (16 images/GPU)
         'epochs': 200000,
-        'height': 64, 'width': 64,
-        'composition': ['Rh', 'Ir'], 'nz': 10,
-        'restart': False, # Pour test propre
-        'checkpoint_path': 'unet_atomod_trained_last16.h5',
+        'height': 64,
+        'width': 64,
+        'composition': ['Rh', 'Ir'],
+        'nz': 10,
+        'n_train_images': 2024,  # Première moitié
+        'n_val_images': 2024,     # Deuxième moitié
+        'restart': True,
+        'checkpoint_path': 'unet_atomod_trained_last.h5',
         'initial_epoch': 0,
         'learning_rate': 1e-4,
         'data_root': 'data/train',
-        'output_dir': 'data16/train/intermediate',
-        'logs_dir': 'logs16',
-        'save_best_only': True
+        'output_dir': 'data/train/intermediate',
+        'logs_dir': 'logs',
+        'checkpoint_dir': 'checkpoints',
+        'save_best_only': False,
+        'early_stopping_patience': 2000,
+        'checkpoint_freq': 100
     }
+    
+    # Alternative batch size=128 pour utilisation GPU maximale (si mémoire suffisante)
+    # config_max_gpu = {
+    #     'batch_size': 128,  # 2024/128 = 15.8 → 15 steps/epoch (32 images/GPU)
+    #     'n_train_images': 2024,
+    #     'n_val_images': 2024,
+    #     ...
+    # }
+    # ATTENTION: Avec batch=128, risque d'OOM sur P100 (16GB). Commencer avec 64.
+    
+    # Création et lancement de l'entraîneur
+    trainer = ATOMODTrainer(config=config)
+    history = trainer.train()
+    
+    print("\n🎉 PROCESSUS TERMINÉ!")
 
-    trainer = ATOMODTrainer(config=custom_config)
-    trainer.train()
 
 if __name__ == "__main__":
     main()

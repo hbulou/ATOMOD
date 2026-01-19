@@ -360,7 +360,6 @@ class CustomDataGenerator(tf.keras.utils.Sequence):
         return X, Y
     def __data_generation(self, list_IDs_temp):
         H, W = self.target_size
-        print(self.composition)
         
         
         # Initialisation des tableaux de lots
