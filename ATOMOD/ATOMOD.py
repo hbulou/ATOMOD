@@ -114,7 +114,7 @@ def UNetv2(input_height,input_width,N):
     #bias_initializer=tf.keras.initializers.Constant(0.1),
     outputs = tf.keras.layers.Conv2D(N,
                                      kernel_size,
-                                     activation=None,
+                                     activation='sigmoid',
                                      padding='same',
                                      kernel_regularizer=regularization(1.0e-4),
                                      kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1e-3),

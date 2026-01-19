@@ -4,6 +4,18 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, CSVLogger
 from ATOMOD.ATOMOD import CustomDataGenerator, UNet, ImageSamplingCallback
 
+def weighted_bce_loss(y_true, y_pred):
+    # Poids pour les pixels positifs (les atomes). 
+    # Si les atomes sont rares, on augmente ce poids (ex: 10 ou 50)
+    pos_weight = 10.0 
+    
+    # Évite log(0)
+    epsilon = tf.keras.backend.epsilon()
+    y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+    
+    # Calcul de la perte pondérée
+    loss = - (pos_weight * y_true * tf.math.log(y_pred) + (1 - y_true) * tf.math.log(1 - y_pred))
+    return tf.reduce_mean(loss)
 
 class ATOMODTrainer:
     """Entraîneur pour le modèle ATOMOD UNet."""
@@ -160,8 +172,14 @@ class ATOMODTrainer:
                     learning_rate=self.config['learning_rate'],
                     clipnorm=1.0
                 ),
-                loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
-                metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)]
+                # Notez from_logits=False car on a ajouté l'activation Sigmoid dans le modèle
+                # Si vous utilisez la weighted_bce_loss ci-dessus : loss=weighted_bce_loss
+                # Sinon, pour commencer simple :
+                #loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
+                loss=weighted_bce_loss,
+                metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5), tf.keras.metrics.Recall(), tf.keras.metrics.Precision()]
+                #loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+                #metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)]
             )
         
         self.model.summary()
@@ -326,18 +344,18 @@ def main():
     config = {
         'batch_size': 64,  # 2024/64 = 31.6 → 31 steps par epoch (16 images/GPU)
         'epochs': 200000,
-        'height': 64,
-        'width': 64,
+        'height': 128,
+        'width': 128,
         'composition': ['Rh', 'Ir'],
         'nz': 10,
         'n_train_images': 2024,  # Première moitié
         'n_val_images': 2024,     # Deuxième moitié
-        'restart': True,
-        'checkpoint_path': 'unet_atomod_trained_last.h5',
+        'restart': False,
+        'checkpoint_path': 'unet_atomod_trained_last4.h5',
         'initial_epoch': 0,
         'learning_rate': 1e-4,
         'data_root': 'data/train',
-        'output_dir': 'data/train/intermediate',
+        'output_dir': 'data4/train/intermediate',
         'logs_dir': 'logs',
         'checkpoint_dir': 'checkpoints',
         'save_best_only': False,
