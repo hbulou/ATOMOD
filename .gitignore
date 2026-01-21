@@ -8,3 +8,8 @@ bulou/
 *.h5
 *.xyz
 *.org
+*~
+tmp.*
+model*
+log*
+recap*
