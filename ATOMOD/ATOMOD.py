@@ -62,12 +62,15 @@ def skip_connection(x, y,name=None):
 def max_pooling_layer(x, name='max_pooling'):
     return tf.keras.layers.MaxPooling2D(pool_size=2, padding='same', name=name)(x)
 
+#def upsampling_layer(x, channels, name='upsampling_layer'):
+#    x = tf.keras.layers.UpSampling2D(name=name+'-upsampling')(x)
+#    x = convolutional_layer(x, channels, kernel_size=1, name=name+'-upsampling_convolutional')
+#    return (x)
 def upsampling_layer(x, channels, name='upsampling_layer'):
-
     x = tf.keras.layers.UpSampling2D(name=name+'-upsampling')(x)
-    x = convolutional_layer(x, channels, kernel_size=1, name=name+'-upsampling_convolutional')
-    return (x)
-
+    # CHANGEMENT ICI : kernel_size passe de 1 à 3 pour lisser le redimensionnement
+    x = convolutional_layer(x, channels, kernel_size=3, name=name+'-upsampling_convolutional')
+    return x
 def UNetv2(input_height,input_width,N):
     """
     Définition du Modèle UNet adapté à N sorties
@@ -351,11 +354,20 @@ class CustomDataGenerator(tf.keras.utils.Sequence):
             np.random.shuffle(self.indexes)
 
     def __getitem__(self, index):
-        # Générer un lot d'indices
+        # Générer un lot d'indices. Fabriquer un "batch" (un lot) de données.
+        # Lorsqu'on lance model.fit() dans Stand_Alone_ATOMOD.py, Keras ne charge pas
+        # toutes les données d'un coup. Il appelle ls générateur en boucle :
+        #   Keras : "J'ai besoin du batch numéro 0."
+        #   la méthode __getitem__(0) s'exécute.
+        #   Keras : "J'ai besoin du batch numéro 1."
+        #   ls méthode __getitem__(1) s'exécute.
+
+        # identification des fichiers à charger
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
 
         # Générer les données pour ce lot
+        # Charge et prépare les données (X=images, Y=labels)
         X, Y = self.__data_generation(list_IDs_temp)
         return X, Y
     def __data_generation(self, list_IDs_temp):
@@ -377,22 +389,15 @@ class CustomDataGenerator(tf.keras.utils.Sequence):
             # --- Partie X (Image d'Entrée - Niveaux de Gris) ---
             img_path = os.path.join(self.data_path, 'images', f'{ID}.png')
             img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE) # Charge en (H, W)
-
             
             # Prétraitement de X
             img = cv2.resize(img, (W, H))
             #cv2.imwrite(f"data/check/X{ID}_{img.min()}_{img.max()}.png", img)
 
-
             img = img / 255.0  # Normalisation
-
-            
-
             
             # Ajouter la dimension du canal (1) et du lot (sera ajouté par Keras)
             X[i,] = np.expand_dims(img, axis=-1) # Forme (H, W, 1)
-
-
             
             # --- Partie Y (10 Masques Empilés - Binaires) ---
             all_masks = []

@@ -4,18 +4,21 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, CSVLogger
 from ATOMOD.ATOMOD import CustomDataGenerator, UNet, ImageSamplingCallback
 
+
+
 def weighted_bce_loss(y_true, y_pred):
-    # Poids pour les pixels positifs (les atomes). 
-    # Si les atomes sont rares, on augmente ce poids (ex: 10 ou 50)
-    pos_weight = 10.0 
-    
-    # Évite log(0)
+    # On force la valeur entre epsilon et 1-epsilon pour éviter log(0)
     epsilon = tf.keras.backend.epsilon()
     y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+
+    # POIDS : On punit 20 fois plus l'erreur sur un atome que sur le fond
+    # Vous pouvez ajuster ce chiffre (10.0 à 50.0) si le contraste reste faible
+    pos_weight = 20.0 
     
-    # Calcul de la perte pondérée
+    # Formule de la Binary Cross Entropy pondérée
     loss = - (pos_weight * y_true * tf.math.log(y_pred) + (1 - y_true) * tf.math.log(1 - y_pred))
     return tf.reduce_mean(loss)
+
 
 class ATOMODTrainer:
     """Entraîneur pour le modèle ATOMOD UNet."""
@@ -29,22 +32,22 @@ class ATOMODTrainer:
         """
         # Configuration par défaut
         self.config = {
-            'batch_size': 32,
+            'batch_size': 64,
             'epochs': 200000,
             'height': 64,
             'width': 64,
             'composition': ['Rh', 'Ir'],
             'nz': 10,
-            'n_train_images': 2024,  # Première moitié pour train
-            'n_val_images': 2024,     # Deuxième moitié pour val
+            'n_train_images': 2048,  # Première moitié pour train
+            'n_val_images': 2048,     # Deuxième moitié pour val
             'restart': True,
-            'checkpoint_path': 'unet_atomod_trained_last.h5',
+            'checkpoint_path': 'unet_atomod_trained_last.keras',
             'initial_epoch': 0,
             'learning_rate': 1e-4,
             'data_root': 'data/train',
-            'output_dir': 'data/train/intermediate',
-            'logs_dir': 'logs',
-            'checkpoint_dir': 'checkpoints',
+            'output_dir': 'model/intermediate',
+            'logs_dir': 'model/logs',
+            'checkpoint_dir': 'model/checkpoints',
             'save_best_only': False,
             'early_stopping_patience': 2000,
             'checkpoint_freq': 100
@@ -120,6 +123,7 @@ class ATOMODTrainer:
         print(f"🔄 Steps per epoch val: {len(val_IDs) // batch_size}")
         
         # Générateur d'entraînement
+        # CustomDataGenerator est définit dans ATOMOD/ATOMOD.py
         train_generator = CustomDataGenerator(
             train_IDs,
             self.config['data_root'],
@@ -177,9 +181,9 @@ class ATOMODTrainer:
                 # Sinon, pour commencer simple :
                 #loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
                 loss=weighted_bce_loss,
-                metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5), tf.keras.metrics.Recall(), tf.keras.metrics.Precision()]
+                #metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5), tf.keras.metrics.Recall(), tf.keras.metrics.Precision()]
                 #loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
-                #metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)]
+                metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)]
             )
         
         self.model.summary()
@@ -195,7 +199,7 @@ class ATOMODTrainer:
         checkpoint_callback = ModelCheckpoint(
             filepath=os.path.join(
                 self.config['checkpoint_dir'],
-                'unet_epoch_{epoch:06d}.h5'
+                'unet_epoch_{epoch:06d}.keras'
             ),
             save_best_only=False,
             save_freq=self.config['checkpoint_freq'],  # Tous les N epochs
@@ -205,7 +209,7 @@ class ATOMODTrainer:
         
         # CALLBACK 2: Sauvegarde du meilleur modèle séparément
         best_checkpoint = ModelCheckpoint(
-            filepath='best_model.h5',
+            filepath='best_model.keras',
             save_best_only=True,
             monitor='val_loss',
             mode='min',
@@ -328,7 +332,7 @@ class ATOMODTrainer:
         )
         
         # 7. Sauvegarde finale
-        final_model_path = 'unet_atomod_trained_final.h5'
+        final_model_path = 'unet_atomod_trained_final.keras'
         self.model.save(final_model_path)
         print(f"\n✅ Entraînement terminé!")
         print(f"💾 Modèle sauvegardé: {final_model_path}")
@@ -341,26 +345,28 @@ def main():
     """Point d'entrée principal du programme."""
     
     # Configuration optimisée pour 4 GPU P100 (batch_size=64)
+    batch_size=120
+    save_dir="modelv2_64x64_"+str(batch_size)
     config = {
-        'batch_size': 64,  # 2024/64 = 31.6 → 31 steps par epoch (16 images/GPU)
-        'epochs': 200000,
-        'height': 128,
-        'width': 128,
-        'composition': ['Rh', 'Ir'],
-        'nz': 10,
-        'n_train_images': 2024,  # Première moitié
-        'n_val_images': 2024,     # Deuxième moitié
-        'restart': False,
-        'checkpoint_path': 'unet_atomod_trained_last4.h5',
-        'initial_epoch': 0,
-        'learning_rate': 1e-4,
-        'data_root': 'data/train',
-        'output_dir': 'data4/train/intermediate',
-        'logs_dir': 'logs',
-        'checkpoint_dir': 'checkpoints',
-        'save_best_only': False,
+        'batch_size':              batch_size,  # 2024/64 = 31.6 → 31 steps par epoch (16 images/GPU)
+        'epochs':                  200000,
+        'height':                  64,
+        'width':                   64,
+        'composition':             ['Rh', 'Ir'],
+        'nz':                      10,
+        'n_train_images':          2048,  # Première moitié
+        'n_val_images':            2048,     # Deuxième moitié
+        'restart':                 False,
+        'checkpoint_path':         'unet_atomod_trained.keras',
+        'initial_epoch':           0,
+        'learning_rate':           1e-4,
+        'data_root':               'data/train',
+        'output_dir':              save_dir+'/intermediate',
+        'logs_dir':                save_dir+'/logs',
+        'checkpoint_dir':          save_dir+'/checkpoints',
+        'save_best_only':          False,
         'early_stopping_patience': 2000,
-        'checkpoint_freq': 100
+        'checkpoint_freq':         100
     }
     
     # Alternative batch size=128 pour utilisation GPU maximale (si mémoire suffisante)
