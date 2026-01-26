@@ -4,7 +4,26 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, CSVLogger
 from ATOMOD.ATOMOD import CustomDataGenerator, UNet, ImageSamplingCallback
 
+# Remplacer la fonction weighted_bce_loss par celle-ci dans Stand_Alone_ATOMOD_Claude_opt.py
 
+def focal_loss_fixed(y_true, y_pred):
+    """
+    Focal Loss adaptée pour la segmentation d'atomes (classes très déséquilibrées).
+    """
+    gamma = 2.0
+    alpha = 0.25 # Équilibre l'importance positif/négatif
+    
+    # On évite les erreurs numériques log(0)
+    epsilon = tf.keras.backend.epsilon()
+    y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+    
+    # Calcul des termes
+    pt_1 = tf.where(tf.equal(y_true, 1), y_pred, tf.ones_like(y_pred))
+    pt_0 = tf.where(tf.equal(y_true, 0), y_pred, tf.zeros_like(y_pred))
+    
+    # Formule de la Focal Loss
+    return -tf.reduce_sum(alpha * tf.pow(1. - pt_1, gamma) * tf.math.log(pt_1)) \
+           -tf.reduce_sum((1 - alpha) * tf.pow(pt_0, gamma) * tf.math.log(1. - pt_0))
 
 def weighted_bce_loss(y_true, y_pred):
     # On force la valeur entre epsilon et 1-epsilon pour éviter log(0)
@@ -171,18 +190,26 @@ class ATOMODTrainer:
                 )
             
             # Compilation du modèle
+            # self.model.compile(
+            #     optimizer=tf.keras.optimizers.Adam(
+            #         learning_rate=self.config['learning_rate'],
+            #         clipnorm=1.0
+            #     ),
+            #     # Notez from_logits=False car on a ajouté l'activation Sigmoid dans le modèle
+            #     # Si vous utilisez la weighted_bce_loss ci-dessus : loss=weighted_bce_loss
+            #     # Sinon, pour commencer simple :
+            #     #loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
+            #     loss=weighted_bce_loss,
+            #     #metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5), tf.keras.metrics.Recall(), tf.keras.metrics.Precision()]
+            #     #loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+            #     metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)]
+            # )
             self.model.compile(
                 optimizer=tf.keras.optimizers.Adam(
                     learning_rate=self.config['learning_rate'],
                     clipnorm=1.0
                 ),
-                # Notez from_logits=False car on a ajouté l'activation Sigmoid dans le modèle
-                # Si vous utilisez la weighted_bce_loss ci-dessus : loss=weighted_bce_loss
-                # Sinon, pour commencer simple :
-                #loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
-                loss=weighted_bce_loss,
-                #metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5), tf.keras.metrics.Recall(), tf.keras.metrics.Precision()]
-                #loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+                loss=focal_loss_fixed,
                 metrics=[tf.keras.metrics.BinaryAccuracy(threshold=0.5)]
             )
         
@@ -345,7 +372,7 @@ def main():
     """Point d'entrée principal du programme."""
     
     # Configuration optimisée pour 4 GPU P100 (batch_size=64)
-    batch_size=120
+    batch_size=128
     save_dir="modelv2_64x64_"+str(batch_size)
     config = {
         'batch_size':              batch_size,  # 2024/64 = 31.6 → 31 steps par epoch (16 images/GPU)

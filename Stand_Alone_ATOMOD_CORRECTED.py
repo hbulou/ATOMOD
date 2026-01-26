@@ -2,7 +2,7 @@ import os
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, CSVLogger
-from ATOMOD_CORRECTED import CustomDataGenerator, UNet, ImageSamplingCallback
+from ATOMOD.ATOMOD_CORRECTED import CustomDataGenerator, UNet, ImageSamplingCallback
 
 
 # ========================================

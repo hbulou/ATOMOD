@@ -9,12 +9,57 @@ import abtem
 import ase
 import matplotlib.pyplot as plt
 import numpy as np
-def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
-    TEM_output_dir="data/train/images"
-    os.makedirs(TEM_output_dir, exist_ok=True)
-    prob_output_dir = "data/train/prob_maps"
-    os.makedirs(prob_output_dir, exist_ok=True)
+from scipy.stats import gaussian_kde
+from scipy.signal import find_peaks
+
+def get_z_plane(z_coords):
+    # 1. Charger vos données (remplacez par la lecture de votre fichier XYZ)
+    # Supposons que 'z_coords' est un array numpy contenant toutes vos cotes z
+    #z_coords = np.loadtxt("data/xyz/NP_2050.xyz", skiprows=2, usecols=3) # Exemple pour format XYZ standard
+    #print(z_coords)
+    # 2. Calculer le KDE (densité de probabilité)
+    density = gaussian_kde(z_coords, bw_method=0.05) # Ajuster bw_method selon le bruit
+    z_range = np.linspace(min(z_coords), max(z_coords), 1000)
+    z_density = density(z_range)
     
+    # 3. Trouver les pics
+    peaks, _ = find_peaks(z_density, height=np.max(z_density)*0.1)
+    z_planes = z_range[peaks]
+    
+    # 4. Visualisation
+    #plt.plot(z_range, z_density)
+    #plt.plot(z_planes, z_density[peaks], "x")
+    #plt.title(f"Cotes des plans détectées : {z_planes}")
+    #plt.xlabel("z")
+    #plt.ylabel("Densité")
+    #plt.show()
+    
+    print("Cotes des plans :", z_planes)
+    d_mean=0.0
+    for i in range(len(z_planes)-1):
+        d=z_planes[i+1]-z_planes[i]
+        #print(d)
+        d_mean+=d
+    d_mean=d_mean/(len(z_planes)-1)
+    print("<d>=",d_mean)
+    return z_planes,d_mean
+    
+####################################################################################################################
+def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20,root_dir="data"):
+
+    TEM_output_dir=root_dir+"/train/images"
+    os.makedirs(TEM_output_dir, exist_ok=True)
+    prob_output_dir = root_dir+"/train/prob_maps"
+    os.makedirs(prob_output_dir, exist_ok=True)
+    xyz_output_dir = root_dir+"/xyz"
+    os.makedirs(xyz_output_dir, exist_ok=True)
+
+    
+    ##############################################################################################"
+    #
+    # generation in silico de la NP
+    #
+    ##############################################################################################"
     Bulk=Crystal(elt=composition[0],Nx=N,Ny=N,Nz=N)
     Bulk.origin_at_mass_center()
     molecule=Bulk.transform(radius=radius)
@@ -26,8 +71,6 @@ def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
             molecule.pos_elt[elt]=[]
     print(f"### {elt} {molecule.pos_elt[elt]} -> stoechiometry {len(molecule.pos_elt[elt])/len(molecule.atoms)}")
     molecule.get_structure()
-
-
 
     print(100*"-","\n### Building alloy")
     print("### element(s) :",composition)
@@ -52,46 +95,56 @@ def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
 
     molecule.get_element_distribution()
     molecule.get_structure()
-    print("### ",molecule.pos_elt)
+    print("### elt=",molecule.pos_elt)
+    
+    molecule.save(prefix=f"{xyz_output_dir}/NP_{seed:04d}_unrlx",fmt='xyz')
 
+    # -------------- STRUCTURAL OPTIMIZATION -------------------------------
     molecule.FF=ForceField()
     molecule.optimize(tol=1.0e-8)
 
+    molecule.get_element_distribution()
+    molecule.get_structure()
+    print("### (xmin,ymin,zmin)=",molecule.qmin)
+    print("### (xmax,ymax,zmax)=",molecule.qmax)
     
+    ##############################################################################################"
+    #
+    # generation des images TEM
+    #
+    ##############################################################################################"
+
     # Crée une boîte vide de 10x10x10 Å
     # pour l'instant on passe par ASE pour fournir la structure à abtem
     cellsize=20.0 # taille de la zone à simuler
     atoms = ase.Atoms(cell=[cellsize,cellsize,cellsize], pbc=True)
-        
-    #print(atoms)
+
     for atm in molecule.atoms:
-        #print(atm.elt,bulou.Atom.Z_from_elt[atm.elt],atm.q)
         atoms += ase.Atom(bulou.Atom.Z_from_elt[atm.elt], (atm.q[0],atm.q[1],atm.q[2]))
     atoms.center()
     for atm in atoms:
-        #print(atm.index)
-        #print(atm.x)
-        #print(dir(atm))
         print(atm)
         molecule.atoms[atm.index].q[0]=atm.x
         molecule.atoms[atm.index].q[1]=atm.y
         molecule.atoms[atm.index].q[2]=atm.z
     molecule.get_structure()
-        
-    #fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-    #abtem.visualize.show_atoms(atoms, ax=ax1,             title="Beam view", numbering=True, merge=False)
-    #abtem.visualize.show_atoms(atoms, ax=ax2, plane="xz", title="Side view", numbering=True,merge=False,legend=True)
+    molecule.save(prefix=f"{xyz_output_dir}/NP_{seed:04d}",fmt='xyz')
 
 
+
+    z_coords=[]
+    for atm in molecule.atoms:
+        z_coords.append(atm.q[2])
+    zp,dzmean=get_z_plane(z_coords)    
         
-    dz=4.08/2
+    dz=dzmean
     dx=0.04
     potential = abtem.Potential(atoms,
                                 slice_thickness=dz,
                                 sampling= dx)
     
-    print(dir(potential))
-    print(dir(abtem.visualize))
+    #print(dir(potential))
+    #print(dir(abtem.visualize))
     #potential.show()
     # fonction d'onde électronique qui est diffusée
     plane_wave = abtem.PlaneWave(sampling =0.01 , energy =300e3  )
@@ -136,15 +189,23 @@ def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
     #plt.show()
     plt.close(fig)
 
+    ##############################################################################################"
+    #
+    # generation des cartes de probabilite de presence atomique
+    #
+    ##############################################################################################"
     nx=potential.shape[1]
     ny=potential.shape[2]
-    nz=potential.shape[0]
-    print(nx,ny,nz,dx)
+    nvacc=2
+    nz=len(zp)+2*nvacc
     dy=dx
+    print(f"(nx,ny,nz)=({nx},{ny},{nz} (dx,dy,dz)=({dx},{dy},{dz})")
     x = np.linspace(0.0, potential.extent[0], nx)
     y = np.linspace(0.0, potential.extent[1], ny)
-    z = np.linspace(0.0, molecule.qmax[2], nz)
-        
+    z = np.linspace(zp[0]-nvacc*dzmean, zp[-1]+nvacc*dzmean, nz)
+    print(f"zp={zp}")
+    print(f"z={z}")
+    print(f"z/dz={z/dz}")
     volumes = {}  # dict: espèce -> volume 3D
     for sp in composition:
         volumes[sp] = np.zeros((nx, ny, nz), dtype=float)
@@ -158,17 +219,18 @@ def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
         #     # Indices du voisinage à affecter (±3 sigma)
         ix_center = int((ax) / dx)
         iy_center = int((ay) / dy)
-        iz_center = int((az) / dz)
-        
+        iz_center = int((az-z[0]) / dz)
+        #print(ax,ay,az,ix_center,iy_center,iz_center)
         r = int(3 * sigma / dx)  # rayon en nombre de voxels
+        rz = int(3 * sigma / dz)  # rayon en nombre de voxels
 
         ix_min = max(ix_center - r, 0)
         ix_max = min(ix_center + r + 1, nx)
         iy_min = max(iy_center - r, 0)
         iy_max = min(iy_center + r + 1, ny)
-        iz_min = max(iz_center - r, 0)
-        iz_max = min(iz_center + r + 1, nz)
-        
+        iz_min = max(iz_center - rz, 0)
+        iz_max = min(iz_center + rz + 1, nz)
+        print(atom.elt,ix_min,ix_max,iy_min,iy_max,iz_min,iz_max)
         #     # Sous-grille locale
         Xsub = x[ix_min:ix_max]
         Ysub = y[iy_min:iy_max]
@@ -178,7 +240,7 @@ def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
         
         dx2 = (Xg - ax)**2
         dy2 = (Yg - ay)**2
-        dz2 = (Zg - az)**2
+        dz2 = (Zg - az+z[0])**2
         gauss = np.exp(-(dx2 + dy2 + dz2) / (2 * sigma**2))
         
         vol[ix_min:ix_max, iy_min:iy_max, iz_min:iz_max] += gauss
@@ -187,11 +249,11 @@ def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
 
     xmin=0.0
     ymin=0.0
-    zmin=0.0
+    zmin=z[0]
     xmax=potential.extent[1]
     ymax=potential.extent[1]
-    zmax=molecule.qmin[2]
-
+    zmax=z[-1]
+    print(f"zmin={zmin} zmax={zmax}")
     for sp in composition:
         vol=volumes[sp]
         nx, ny, nz = vol.shape
@@ -245,9 +307,16 @@ def mk_TEM(seed,radius=5.0,composition=['Pt','Pd'],N=20):
             plt.close(fig)
     del molecule
     del atoms
+####################################################################################################################
 def main():
-    for seed in range(2051,4097):
-        mk_TEM(seed,composition=['Rh','Ir'])
+    config={
+        'root_dir':  "data2",
+        'idx_start': 2050,
+        'idx_end':   2050
+        }
+    
+    for seed in range(config['idx_start'],config['idx_end']+1):
+        mk_TEM(seed,composition=['Rh','Ir'],root_dir=config['root_dir'])
 # ##########################################################################################
 # Point d’entrée du programme
 if __name__ == "__main__":
