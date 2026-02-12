@@ -17,3 +17,7 @@ cd /home/bulou/ownCloud/Notebooks/M2P2_HEA/Modelisation/ATOMOD/GUI
 source /home/bulou/venv/ATOMOD/bin/activate
 python Py_ATOMODv0.5.py
 ```
+
+```bash
+pyuic6 HB_ATOMOD_GUI.ui -o HB_ATOMOD_GUI.py
+```
