@@ -13,3 +13,6 @@ tmp.*
 model*
 log*
 recap*
+best_model.keras
+data2/
+unet_atomod_trained_last.keras
