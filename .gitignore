@@ -16,3 +16,9 @@ recap*
 best_model.keras
 data2/
 unet_atomod_trained_last.keras
+.dimensions.dat
+.feff.error
+.ipynb_checkpoints/
+.scfconvergence-feff
+bulou
+doc/
