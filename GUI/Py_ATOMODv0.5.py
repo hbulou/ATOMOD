@@ -40,6 +40,8 @@ import random
 from ase import Atoms,Atom  # juste pour construire l'objet
 
 from ase.lattice.hexagonal import Graphene
+
+sys.path.append('../lib/')
 from abtem.atoms import orthogonalize_cell
 from abtem.visualize import show_atoms
 from  abtem  import  PlaneWave, CTF
@@ -61,7 +63,7 @@ from tensorflow.keras.models import Model,load_model
 
 
 from ATOMOD.ATOMOD import CustomDataGenerator,UNet,ImageSamplingCallback
-from FEFF.FEFF import FEFF_info
+from PyFEFF.FEFF import (FEFF)
 
 def _display_img(X,title="None"):
     cv2.imshow(title, X)
@@ -305,7 +307,18 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
 
         self.WD_compute_XAS.clicked.connect(self.FEFF)
     def FEFF(self):
-        FEFF_info(idx=self.WD_le_selected_atom.text())
+
+
+        feff=FEFF()
+        feff.create_input_file(self.molecule,
+                               absorber_idx=int(self.WD_le_selected_atom.text()))
+        feff.run()
+        #FEFF_info(idx=self.WD_le_selected_atom.text())
+        
+        #FEFF_create_parameter_file("feff.inp",self.molecule)
+        #calculator=FEFF_calculator(config=FEFF_config())
+
+        
     def exchange(self):
         self.molecule.exchange()
         self.atom_model.setDataFrame(self.molecule.to_df())
@@ -1277,6 +1290,9 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
 # ##########################################################################################
 # Point d’entrée du programme
 if __name__ == "__main__":
+    
+    print(abtem.__file__)
+    
     # initialise l’application Qt.
     app = QApplication(sys.argv)
     # crée une instance (l'objet) de la fenêtre principale.
