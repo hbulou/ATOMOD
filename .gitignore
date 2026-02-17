@@ -23,3 +23,9 @@ unet_atomod_trained_last.keras
 bulou
 doc/
 JFEFF/
+Archive/
+*.dat
+*.png
+*.inp
+*.bin
+fort.*

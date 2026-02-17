@@ -2,10 +2,23 @@ from bulou.Crystal import Crystal
 from bulou.Atom import Z_from_elt
 import numpy as np
 from pathlib import Path
+import subprocess
+
+
+#    def __init__(self):
+#        """Constantes de configuration de l'application."""
+
+
 
 class FEFF:
     def __init__(self):
-        pass
+        self.FEFF_PGM = [
+            "rdinp", "atomic", "dmdw", "pot", "opconsat", 
+            "screen", "xsph", "fms", "mkgtr", "path", 
+            "genfmt", "ff2x", "sfconv", "compton", "eels", "ldos"
+        ]
+        self.config=self.default_config()
+
     def default_config(self):
         return {
             'debye_temp_0':190.0,
@@ -13,7 +26,7 @@ class FEFF:
             'edge':  "K",
             'scf_radius': 5.0,
             'rpath': 5.0,
-            'feff_dir' : '/home/bulou/ownCloud/Notebooks/M2P2_HEA/Modelisation/ATOMOD/JFEFF/feff90/unix/'
+            'feff_dir' : '/home/bulou/ownCloud/Notebooks/M2P2_HEA/Home/Modelisation/ATOMOD/JFEFF/feff90/unix/'
             }
         
     def create_input_file(self,
@@ -24,7 +37,8 @@ class FEFF:
                           config=None):
 
         if config is None:
-            config=self.default_config()
+            #config=self.default_config()
+            config=self.config
         
         # Positionner l'origine sur l'atome absorbeur
         molecule.origin_at(origin=molecule.atoms[absorber_idx].q)
@@ -68,17 +82,17 @@ class FEFF:
                     )
 
             f.write(f'END\n')
-    def run(self):
+    def run(self,feff_pgm):
         # Liste ordonnée des programmes FEFF à exécuter
-        FEFF_PGM = [
-            "rdinp", "atomic", "dmdw", "pot", "opconsat", 
-            "screen", "xsph", "fms", "mkgtr", "path", 
-            "genfmt", "ff2x", "sfconv", "compton", "eels", "ldos"
-        ]
-        conf={"rdinp":True,"atomic":False}
-        print(f"{conf[FEFF_PGM[0]]} {conf[FEFF_PGM[1]]}")
-
-
+        #conf={"rdinp":True,"atomic":False}
+        for pgm in feff_pgm.keys():
+            print(f"{pgm} -> {feff_pgm[pgm].isChecked()}")
+            if feff_pgm[pgm].isChecked():
+                subprocess.run([self.config["feff_dir"]+"/"+pgm])
+                print(f"{pgm} -> DONE!")
+        print(f"EXAFS calculation DONE!")
+    # def _on_feff_pgm_checkbox_changed(self):
+    #     pass
 
 ##############################################################################
         

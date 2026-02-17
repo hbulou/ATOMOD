@@ -3,15 +3,16 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 #os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
 import time
 import sys
+
 from HB_ATOMOD_GUI import Ui_MainWindow
 from HEAS import HEAS
 
 
 from PyQt6 import QtWidgets
 from PyQt6.QtWidgets import (QMainWindow,QApplication,QTableWidgetItem,QFileDialog,QInputDialog,
-                             QMessageBox,QProgressBar,QAbstractItemView)
+                             QMessageBox,QProgressBar,QAbstractItemView,QCheckBox)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeySequence,QIntValidator
+from PyQt6.QtGui import QKeySequence,QIntValidator, QGuiApplication
 from pathlib import Path
 import paramiko
 import pandas as pd
@@ -65,6 +66,61 @@ from tensorflow.keras.models import Model,load_model
 from ATOMOD.ATOMOD import CustomDataGenerator,UNet,ImageSamplingCallback
 from PyFEFF.FEFF import (FEFF)
 
+import logging
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+# ============================================================================================
+# CONSTANTES DE CONFIGURATION
+# ============================================================================================
+# Écran par défaut
+
+class Config:
+    DEFAULT_SCREEN_INDEX = 0  # Écran secondaire si disponible
+    #
+    TOLERANCE=1.0e-8
+    RADIUS=.5
+    FEFF_PGM = [
+        "rdinp",
+        "atomic",
+        "dmdw",
+        "pot",
+        "opconsat", 
+        "screen",
+        "xsph",
+        "fms",
+        "mkgtr",
+        "path", 
+        "genfmt",
+        "ff2x", "sfconv", "compton", "eels", "ldos"
+    ]
+    
+    
+
+
+# ============================================================================================
+class CustomNavigationToolbar(NavigationToolbar):
+    def __init__(self, canvas, parent, coordinates=True):
+        super().__init__(canvas, parent, coordinates)
+
+    def save_figure(self, *args):
+        # On définit le nom par défaut ici
+        original_get_filename = self.canvas.get_default_filename
+        
+        # On surcharge la fonction pour renvoyer notre nom personnalisé
+        self.canvas.get_default_filename = lambda: os.path.join(Path.cwd(), f"img.png")
+        
+        try:
+            # On appelle la méthode originale qui ouvrira la fenêtre de dialogue
+            super().save_figure(*args)
+        finally:
+            # On remet la fonction d'origine pour éviter les effets de bord
+            self.canvas.get_default_filename = original_get_filename
+
+
 def _display_img(X,title="None"):
     cv2.imshow(title, X)
     # --- 3. Attendre l'entrée utilisateur ---
@@ -117,6 +173,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         super().__init__()
         
         self.setupUi(self)
+        self.Config=Config()
         #self.molecule = None
         self.H=256
         self.W=256
@@ -150,7 +207,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         # et afficher tous les widgets définis dans l’interface Qt Designer.
 
         self.setWindowTitle("Py_ATOMOD_v0.5")
-        self.WD_lineedit_radius.setText("5")
+        self.WD_lineedit_radius.setText(str(Config.RADIUS))
         self.WD_lineedit_radius.textChanged.connect(self.new_NP)
         self.WD_lineedit_radius.returnPressed.connect(self.new_NP)
 
@@ -184,6 +241,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
 
         self.WD_Btn_save_session.clicked.connect(self.save_session)
         self.WD_btn_exchange.clicked.connect(self.exchange)
+        self.WD_btn_mixing.clicked.connect(self.mixing)
         
         # bouton optimisation structurale
         self.WD_button_optimize.clicked.connect(lambda:  self.optimize_NP(tol=float(self.WD_opt_lineedit_tol.text())))
@@ -199,7 +257,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.TEM_img.sampling.dz=0.0
         self.WD_button_TEM_img.clicked.connect(self.abtem)
         self.WD_button_TEM_save.clicked.connect(self.saveTEM)
-
+        self.WD_lineedit_cellsize.textChanged.connect(self.abtem)
         # xyz -> slice
         self.PB_xyz2slice.clicked.connect(self.xyz2slice)
 
@@ -306,13 +364,28 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.WD_dial_y.valueChanged.connect(self.dial_changed)
 
         self.WD_compute_XAS.clicked.connect(self.FEFF)
-    def FEFF(self):
+        self.feff_pgm__checkboxes = {}  # Dictionnaire feff pgm -> QCheckBox
+        for pgm in Config.FEFF_PGM:
+            checkbox = QCheckBox(f"{pgm}")
+            if pgm in ["rdinp","atomic","dmdw","pot","screen","xsph","mkgtr","path","genfmt","ff2x","sfconv","compton"]:
+                checkbox.setChecked(True)  # Coché par défaut
+            else:
+                checkbox.setChecked(False)  # Coché par défaut
+            #         checkbox.stateChanged.connect(self._on_feff_pgm_checkbox_changed)
+            self.feff_pgm__checkboxes[pgm] = checkbox
+            self.WD_VLY_FEFF_pgm_CB.addWidget(checkbox)
 
+        
+    def FEFF(self):
+        if not hasattr(self, 'molecule') or self.molecule is None:
+            self._show_error("Erreur",
+                             f" Aucune structure atomique disponible.")
+            return
 
         feff=FEFF()
         feff.create_input_file(self.molecule,
                                absorber_idx=int(self.WD_le_selected_atom.text()))
-        feff.run()
+        feff.run(self.feff_pgm__checkboxes)
         #FEFF_info(idx=self.WD_le_selected_atom.text())
         
         #FEFF_create_parameter_file("feff.inp",self.molecule)
@@ -322,7 +395,13 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
     def exchange(self):
         self.molecule.exchange()
         self.atom_model.setDataFrame(self.molecule.to_df())
-        self.NP_viewer.update()        
+        self.NP_viewer.update()
+        self.update_NP_info()
+    def mixing(self):
+        self.molecule.mixing(nexchange=int(self.WD_LE_mixing_nexchange.text()),seed=int(self.WD_LE_mixing_nexchange.text()))
+        self.atom_model.setDataFrame(self.molecule.to_df())
+        self.NP_viewer.update()
+        self.update_NP_info()
     def save_session(self):
         print(f"Session saved!")
         
@@ -354,8 +433,9 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         for atm in self.molecule.atoms:
             print(atm.idx,atm.elt,atm.q)
         print(self.atom_model._df)
+        self.molecule.get_element_distribution()
         self.NP_viewer.update()
-
+        self.update_NP_info()
         
     def update_lineedit(self):
         self.H=int(self.LE_H.text())
@@ -751,6 +831,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.WD_lineedit_dial_y.setText(f'{self.WD_dial_y.value()}')
         self.NP_viewer.rot_y=self.WD_dial_y.value()
         self.NP_viewer.update()
+        self.update_NP_info()
     def saveTEM(self):
         x_axis, y_axis, z_axis = self.NP_viewer.get_axis_vectors()
         print(x_axis)
@@ -769,6 +850,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.NP_viewer.rot_x = 0.0
         self.NP_viewer.rot_y = 0.0
         self.NP_viewer.update()
+        self.update_NP_info()
 
     ################################################################################
     #
@@ -814,7 +896,8 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         clear_layout(host)
         # 3) Créer canvas (+ toolbar si tu veux)
         canvas = FigureCanvas(a[0])
-        toolbar = NavigationToolbar(canvas, self)
+        toolbar = CustomNavigationToolbar(canvas, self)
+        #toolbar = NavigationToolbar(canvas, self)
         # 4) Récupérer ou créer le layout du host
         layout = host.layout()
         if layout is None:
@@ -861,12 +944,12 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         #image.save(self.TEM_img.name)
         #print(f"### abtem : type={type(exit_wave)}") # taille réelle en angstroems
         #print(f"### abtem : attr={dir(exit_wave)}") # taille réelle en angstroems
-        print(f"### abtem : extent={exit_wave.extent}") # taille réelle en angstroems
-        print(f"### abtem : gpts={exit_wave.gpts}")     # resolution en pixel
-        print(f"### abtem : sampling={exit_wave.sampling}") # taille d'un pixel en angstroem
-        print(f"### abtem : exit wave shape={exit_wave.shape}")  # dimension de la matrice
-        print(f"### abtem : potential shape={self.potential.shape}")  # dimension de la matrice
-        print(f"### abtem : potential extent={self.potential.extent}")  # dimension de la matrice
+        logger.info(f"### abtem : extent={exit_wave.extent}") # taille réelle en angstroems
+        logger.info(f"### abtem : gpts={exit_wave.gpts}")     # resolution en pixel
+        logger.info(f"### abtem : sampling={exit_wave.sampling}") # taille d'un pixel en angstroem
+        logger.info(f"### abtem : exit wave shape={exit_wave.shape}")  # dimension de la matrice
+        logger.info(f"### abtem : potential shape={self.potential.shape}")  # dimension de la matrice
+        logger.info(f"### abtem : potential extent={self.potential.extent}")  # dimension de la matrice
         
         #print(f"### abtem : type={type(image)}")  # 
         #print(f"### abtem : type={type(image.array)}")  #
@@ -891,7 +974,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
                     transparent=True,
                     pad_inches=0.1,
                     facecolor='white')
-
+        logger.info(f"{filename}")
 
         array = image.array
         array1 = (array * 255).astype(np.uint8)
@@ -915,9 +998,9 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         # 1) Le host est le QWidget posé dans QtDesigner
         host_2 = self.WD_TEMview_2  # NE PAS ÉCRASER cette variable avec le canvas !
         clear_layout(host_2)
-        # 3) Créer canvas (+ toolbar si tu veux)
+        # 3) Créer canvas + toolbar
         canvas = FigureCanvas(a2.get_figure())
-        toolbar = NavigationToolbar(canvas, self)
+        toolbar = CustomNavigationToolbar(canvas, self)
         # 4) Récupérer ou créer le layout du host
         layout_2 = host_2.layout()
         if layout_2 is None:
@@ -989,7 +1072,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
 
         # Laisse Qt traiter la file d'événements pour rafraîchir l'affichage
         QApplication.processEvents()
-    def optimize_NP(self,tol=1.0e-12):
+    def optimize_NP(self,tol=Config.TOLERANCE):
         print("---------- optimize_NP ----------")
         self.molecule.FF=ForceField()
         start = time.perf_counter()
@@ -1286,6 +1369,20 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             self.WD_table_list_elt.setItem(r, 1, QTableWidgetItem(str(count)))
             self.WD_table_list_elt.setItem(r, 2, QTableWidgetItem("%6.2f"%(100.0*count/natom)))
         #print(elt,count)
+    # ========================================================================================
+    # UTILITAIRES
+    # ========================================================================================
+    
+    def _show_error(self, title: str, message: str):
+        """
+        Affiche une boîte de dialogue d'erreur.
+        
+        Args:
+            title: Titre de la boîte de dialogue
+            message: Message d'erreur
+        """
+        QMessageBox.critical(self, title, message)
+        logger.error(f"{title}: {message}")
         
 # ##########################################################################################
 # Point d’entrée du programme
@@ -1302,6 +1399,28 @@ if __name__ == "__main__":
     #window.resize(1831,586) # Définit sa **taille : 1200 x 1000 pixels**
     #window.resize(1800,900) # Définit sa **taille : 1200 x 1000 pixels**
 
+
+
+    # Positionnement sur l'écran
+    screens = QGuiApplication.screens()
+    screen_idx = Config.DEFAULT_SCREEN_INDEX
+    
+    # Sélection de l'écran
+    if 0 <= screen_idx < len(screens):
+        screen = screens[screen_idx]
+    else:
+        screen = app.primaryScreen()
+        logger.warning(f"Écran {screen_idx} non disponible, utilisation de l'écran primaire")
+    
+    # Récupération de la géométrie
+    screen_geometry = screen.availableGeometry()
+    
+    # Positionnement en haut à droite
+    x = screen_geometry.right() - window.width()
+    y = screen_geometry.top()
+    window.move(x, y)
+
+    
     # === Choix de l'écran ===
     # screens = app.screens()
     # print(len(screens))
