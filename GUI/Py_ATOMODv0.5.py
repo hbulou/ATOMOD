@@ -101,6 +101,12 @@ class Config:
     
 
 
+class XAS:
+    def __init__(self):
+        self.energy=[]
+        self.chi=[]
+        self.checkboxes=None
+        self.idx_curve=-1
 # ============================================================================================
 class CustomNavigationToolbar(NavigationToolbar):
     def __init__(self, canvas, parent, coordinates=True):
@@ -192,6 +198,8 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.plot.addLegend()
         self.curve = self.plot.plot(pen=pg.mkPen('b', width=2), name="Total energy")
 
+        #self.plot_exafs.addLegend()
+        #self.curve_exafs = self.plot_exafs.plot(pen=pg.mkPen('b', width=2), name="exfas")
         
         # 3) Paramètres de connexion au serveur de calcul
         self.hostname = "hpc-login"
@@ -363,6 +371,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.WD_lineedit_dial_y.setText(f'{self.NP_viewer.rot_y}')
         self.WD_dial_y.valueChanged.connect(self.dial_changed)
 
+        self.plot_exafs = self.WD_PL_EXAFS
         self.WD_compute_XAS.clicked.connect(self.FEFF)
         self.feff_pgm__checkboxes = {}  # Dictionnaire feff pgm -> QCheckBox
         for pgm in Config.FEFF_PGM:
@@ -374,24 +383,71 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             #         checkbox.stateChanged.connect(self._on_feff_pgm_checkbox_changed)
             self.feff_pgm__checkboxes[pgm] = checkbox
             self.WD_VLY_FEFF_pgm_CB.addWidget(checkbox)
+        self.exafs_curve_checkboxes={}
+        self.curve_exafs=[]
+        self.XAS={}
 
         
     def FEFF(self):
+        
         if not hasattr(self, 'molecule') or self.molecule is None:
             self._show_error("Erreur",
                              f" Aucune structure atomique disponible.")
             return
-
+        
         feff=FEFF()
+        absorber_idx=int(self.WD_le_selected_atom.text())
+        
+        self.XAS[str(absorber_idx)]=XAS()
+        
+        
         feff.create_input_file(self.molecule,
-                               absorber_idx=int(self.WD_le_selected_atom.text()))
+                               absorber_idx=absorber_idx)
         feff.run(self.feff_pgm__checkboxes)
+
+        try:
+            energy, chi = np.loadtxt('xmu.dat', comments='#', usecols=(0, 4), unpack=True)
+            self.XAS[str(absorber_idx)].energy=energy
+            self.XAS[str(absorber_idx)].chi=chi
+            # Vérification rapide
+            print(f"Premières valeurs colonne 2 (Energy) : {energy[:5]}")
+            print(f"Premières valeurs colonne 3 (chi) : {chi[:5]}")
+
+        except Exception as e:
+            print(f"Une erreur est survenue : {e}")
+        self.XAS[str(absorber_idx)].idx_curve=len(self.curve_exafs)            
+        self.curve_exafs.append(self.plot_exafs.plot(pen=pg.mkPen('b', width=2), name=""))
+
+        self.curve_exafs[-1].setData(self.XAS[str(absorber_idx)].energy,self.XAS[str(absorber_idx)].chi)
+        self.XAS[str(absorber_idx)].checkbox = QCheckBox(f"{absorber_idx} ({self.molecule.atoms[absorber_idx].elt})")
+        self.XAS[str(absorber_idx)].checkbox.setChecked(True)  # Coché par défaut
+        self.XAS[str(absorber_idx)].checkbox.stateChanged.connect(self._on_feff_curve_checkbox_changed)
+        self.exafs_curve_checkboxes[str(absorber_idx)] = self.XAS[str(absorber_idx)].checkbox
+        self.WD_GD_exafs_curve.addWidget(self.XAS[str(absorber_idx)].checkbox)
+
+
+        #print(len(self.curve_exafs))
         #FEFF_info(idx=self.WD_le_selected_atom.text())
         
         #FEFF_create_parameter_file("feff.inp",self.molecule)
         #calculator=FEFF_calculator(config=FEFF_config())
-
-        
+    def _on_feff_curve_checkbox_changed(self):
+        #self.plot_exafs.clear()
+        #print(len(self.curve_exafs))
+        #print(len(self.exafs_curve_checkboxes))
+        for curve in self.XAS.keys():
+            idx_curve=self.XAS[curve].idx_curve
+            print(f"idx_curve {idx_curve}")
+            if self.curve_exafs[idx_curve].isVisible():
+                print("La courbe est actuellement affichée.")
+                if not self.XAS[curve].checkbox.isChecked():
+                    self.curve_exafs[idx_curve].setVisible(False)
+            else:
+                print("La courbe est masquée.")
+                if self.XAS[curve].checkbox.isChecked():
+                    self.curve_exafs[idx_curve].setVisible(True)
+        self.plot_exafs.autoRange()
+                
     def exchange(self):
         self.molecule.exchange()
         self.atom_model.setDataFrame(self.molecule.to_df())

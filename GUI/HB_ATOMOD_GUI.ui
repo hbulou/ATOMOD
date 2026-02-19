@@ -2179,20 +2179,51 @@ p, li { white-space: pre-wrap; }
        <rect>
         <x>60</x>
         <y>130</y>
-        <width>241</width>
-        <height>701</height>
+        <width>181</width>
+        <height>571</height>
        </rect>
       </property>
       <widget class="QWidget" name="verticalLayoutWidget">
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>20</y>
+         <y>10</y>
          <width>160</width>
-         <height>661</height>
+         <height>541</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="WD_VLY_FEFF_pgm_CB"/>
+      </widget>
+     </widget>
+     <widget class="PlotWidget" name="WD_PL_EXAFS" native="true">
+      <property name="geometry">
+       <rect>
+        <x>260</x>
+        <y>130</y>
+        <width>591</width>
+        <height>571</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QWidget" name="WD_exafs_curve" native="true">
+      <property name="geometry">
+       <rect>
+        <x>60</x>
+        <y>720</y>
+        <width>801</width>
+        <height>211</height>
+       </rect>
+      </property>
+      <widget class="QWidget" name="gridLayoutWidget">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>781</width>
+         <height>191</height>
+        </rect>
+       </property>
+       <layout class="QGridLayout" name="WD_GD_exafs_curve"/>
       </widget>
      </widget>
     </widget>
