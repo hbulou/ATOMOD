@@ -19,6 +19,7 @@ import pandas as pd
 from pandasmodel import PandasModel
 import pyqtgraph as pg
 #from AtomTableModel import AtomTableModel  # ou collez la classe ci-dessus dans ce fichier
+from collections import defaultdict
 
 sys.path.append('/home/bulou/ownCloud/code/site-packages/')
 from bulou.Crystal import Crystal
@@ -27,7 +28,7 @@ import bulou.Atom
 
 
 import numpy as np
-
+from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -97,7 +98,56 @@ class Config:
         "genfmt",
         "ff2x", "sfconv", "compton", "eels", "ldos"
     ]
+
+
     
+# ============================================================================================
+# TOOLS
+# ============================================================================================
+def mk_mean(series_list):
+    """
+    Méthode  : Interpolation sur une grille commune.
+    
+    Stratégie :
+    1. Trouver la plage d'énergie commune à toutes les séries
+    2. Créer une grille uniforme sur cette plage
+    3. Interpoler chaque série sur cette grille
+    4. Moyenner
+    
+    Args:
+        series_list: Liste de tuples (energy, intensity)
+    
+    Returns:
+        energy_common, intensity_mean, intensity_std
+    """
+    # Trouver la plage commune (intersection de toutes les séries)
+    energy_min = max(serie[0].min() for serie in series_list)
+    energy_max = min(serie[0].max() for serie in series_list)
+    
+    print(f"Plage commune: [{energy_min:.2f}, {energy_max:.2f}]")
+    
+    # Créer une grille uniforme
+    n_points = len(series_list[0][0])  # Utilise le nombre de points de la première série
+    energy_common = np.linspace(energy_min, energy_max, n_points)
+    
+    # Interpoler chaque série sur la grille commune
+    interpolated_intensities = []
+    
+    for energy, intensity in series_list:
+        # Interpolation linéaire (ou 'cubic' pour plus de lissage)
+        f = interp1d(energy, intensity, kind='linear', fill_value='extrapolate')
+        intensity_interp = f(energy_common)
+        interpolated_intensities.append(intensity_interp)
+    
+    # Convertir en array pour calculs vectorisés
+    interpolated_intensities = np.array(interpolated_intensities)
+    
+    # Calculer moyenne et écart-type
+    intensity_mean = np.mean(interpolated_intensities, axis=0)
+    intensity_std = np.std(interpolated_intensities, axis=0)
+    
+    return energy_common, intensity_mean, intensity_std
+
     
 
 
@@ -386,46 +436,75 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.exafs_curve_checkboxes={}
         self.curve_exafs=[]
         self.XAS={}
-
-        
+        self.feff=FEFF()
+    ### ----------------------------------------------------------------------------------###
     def FEFF(self):
         
         if not hasattr(self, 'molecule') or self.molecule is None:
             self._show_error("Erreur",
                              f" Aucune structure atomique disponible.")
             return
+
+        list_ads=[]
+        if "-" in self.WD_le_selected_atom.text():
+            idx=self.WD_le_selected_atom.text().split("-")
+            list_ads = list(range(int(idx[0]), int(idx[-1])+1))
+            print(list_ads)
+
+        if "all" in self.WD_le_selected_atom.text():
+            idx=self.WD_le_selected_atom.text().split("-")
+            list_ads = list(range(len(self.molecule.atoms)))
+            print(list_ads)
+
+        for  absorber_idx in list_ads:
         
-        feff=FEFF()
-        absorber_idx=int(self.WD_le_selected_atom.text())
+            self.XAS[str(absorber_idx)]=XAS()
         
-        self.XAS[str(absorber_idx)]=XAS()
+            self.feff.create_input_file(self.molecule,
+                                        absorber_idx=absorber_idx)
+            self.feff.run(self.feff_pgm__checkboxes)
+
+            try:
+                energy, chi = np.loadtxt('xmu.dat', comments='#', usecols=(0, 4), unpack=True)
+                self.XAS[str(absorber_idx)].energy=energy
+                self.XAS[str(absorber_idx)].chi=chi
+                # Vérification rapide
+                print(f"Premières valeurs colonne 2 (Energy) : {energy[:5]}")
+                print(f"Premières valeurs colonne 3 (chi) : {chi[:5]}")
+
+            except Exception as e:
+                print(f"Une erreur est survenue : {e}")
+                
+            self.XAS[str(absorber_idx)].idx_curve=len(self.curve_exafs)            
+            self.curve_exafs.append(self.plot_exafs.plot(pen=pg.mkPen('b', width=2), name=""))
+            self.curve_exafs[-1].setData(self.XAS[str(absorber_idx)].energy,self.XAS[str(absorber_idx)].chi)
+            
+            self.XAS[str(absorber_idx)].checkbox = QCheckBox(f"{absorber_idx} ({self.molecule.atoms[absorber_idx].elt})")
+            self.XAS[str(absorber_idx)].checkbox.setChecked(True)  # Coché par défaut
+            self.XAS[str(absorber_idx)].checkbox.stateChanged.connect(self._on_feff_curve_checkbox_changed)
+            self.exafs_curve_checkboxes[str(absorber_idx)] = self.XAS[str(absorber_idx)].checkbox
+            self.WD_GD_exafs_curve.addWidget(self.XAS[str(absorber_idx)].checkbox)
+
+        # Initialise automatiquement avec une liste vide
+        series = defaultdict(list)
+
+        for  absorber_idx in list_ads:
+            elt=self.molecule.atoms[absorber_idx].elt
+            print(self.XAS[str(absorber_idx)].energy[0],self.XAS[str(absorber_idx)].energy[-1],len(self.XAS[str(absorber_idx)].energy))
+            series[elt].append((self.XAS[str(absorber_idx)].energy, self.XAS[str(absorber_idx)].chi))
+        for elt in series.keys():
+            print(elt)
+            self.XAS[f"{elt}_mean"]=XAS()
+            self.XAS[f"{elt}_mean"].energy,self.XAS[f"{elt}_mean"].chi, _ = mk_mean(series[elt])
+            self.XAS[f"{elt}_mean"].idx_curve=len(self.curve_exafs)            
+            self.curve_exafs.append(self.plot_exafs.plot(pen=pg.mkPen('r', width=2), name=""))
+            self.curve_exafs[-1].setData(self.XAS[f"{elt}_mean"].energy,self.XAS[f"{elt}_mean"].chi)
+            self.XAS[f"{elt}_mean"].checkbox = QCheckBox(f"Mean ({elt})")
+            self.XAS[f"{elt}_mean"].checkbox.setChecked(True)  # Coché par défaut
+            self.XAS[f"{elt}_mean"].checkbox.stateChanged.connect(self._on_feff_curve_checkbox_changed)
+            self.exafs_curve_checkboxes[f"{elt}_mean"] = self.XAS[f"{elt}_mean"].checkbox
+            self.WD_GD_exafs_curve.addWidget(self.XAS[f"{elt}_mean"].checkbox)
         
-        
-        feff.create_input_file(self.molecule,
-                               absorber_idx=absorber_idx)
-        feff.run(self.feff_pgm__checkboxes)
-
-        try:
-            energy, chi = np.loadtxt('xmu.dat', comments='#', usecols=(0, 4), unpack=True)
-            self.XAS[str(absorber_idx)].energy=energy
-            self.XAS[str(absorber_idx)].chi=chi
-            # Vérification rapide
-            print(f"Premières valeurs colonne 2 (Energy) : {energy[:5]}")
-            print(f"Premières valeurs colonne 3 (chi) : {chi[:5]}")
-
-        except Exception as e:
-            print(f"Une erreur est survenue : {e}")
-        self.XAS[str(absorber_idx)].idx_curve=len(self.curve_exafs)            
-        self.curve_exafs.append(self.plot_exafs.plot(pen=pg.mkPen('b', width=2), name=""))
-
-        self.curve_exafs[-1].setData(self.XAS[str(absorber_idx)].energy,self.XAS[str(absorber_idx)].chi)
-        self.XAS[str(absorber_idx)].checkbox = QCheckBox(f"{absorber_idx} ({self.molecule.atoms[absorber_idx].elt})")
-        self.XAS[str(absorber_idx)].checkbox.setChecked(True)  # Coché par défaut
-        self.XAS[str(absorber_idx)].checkbox.stateChanged.connect(self._on_feff_curve_checkbox_changed)
-        self.exafs_curve_checkboxes[str(absorber_idx)] = self.XAS[str(absorber_idx)].checkbox
-        self.WD_GD_exafs_curve.addWidget(self.XAS[str(absorber_idx)].checkbox)
-
-
         #print(len(self.curve_exafs))
         #FEFF_info(idx=self.WD_le_selected_atom.text())
         
