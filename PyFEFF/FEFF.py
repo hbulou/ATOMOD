@@ -1,5 +1,5 @@
-from bulou.Crystal import Crystal
-from bulou.Atom import Z_from_elt
+from HBPy.Crystal import Crystal
+from HBPy.Atom import Z_from_elt
 import numpy as np
 from pathlib import Path
 import subprocess

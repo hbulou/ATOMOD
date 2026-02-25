@@ -1,1 +1,1 @@
-/home/bulou/ownCloud/code/site-packages/MoleculeGLWidget/moleculeglwidget.py
+/home/bulou/src/lib/site-packages/HBPy/MoleculeGLWidget/moleculeglwidget.py

@@ -1,8 +1,8 @@
 import sys
 sys.path.append('/home/bulou/ownCloud/code/site-packages/')
-from bulou.Atom import Atom,COV_RADIUS,CPK_COLOR
-from bulou.Crystal import Crystal
-from bulou.ForceField import ForceField
+from HBPy.Atom import Atom,COV_RADIUS,CPK_COLOR
+from HBPy.Crystal import Crystal
+from HBPy.ForceField import ForceField
 import random
 import pandas as pd
 

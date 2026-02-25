@@ -21,10 +21,10 @@ import pyqtgraph as pg
 #from AtomTableModel import AtomTableModel  # ou collez la classe ci-dessus dans ce fichier
 from collections import defaultdict
 
-sys.path.append('/home/bulou/ownCloud/code/site-packages/')
-from bulou.Crystal import Crystal
-from bulou.ForceField import ForceField
-import bulou.Atom
+sys.path.append('/home/bulou/src/lib/site-packages/')
+from HBPy.Crystal import Crystal
+from HBPy.ForceField import ForceField
+import HBPy.Atom
 
 
 import numpy as np
@@ -1059,7 +1059,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         #print(atoms)
         for atm in self.molecule.atoms:
             #print(atm.elt,bulou.Atom.Z_from_elt[atm.elt],atm.q)
-            atoms += Atom(bulou.Atom.Z_from_elt[atm.elt], (atm.q[0],atm.q[1],atm.q[2]))
+            atoms += Atom(HBPy.Atom.Z_from_elt[atm.elt], (atm.q[0],atm.q[1],atm.q[2]))
         #atoms.rotate(90, 'z', rotate_cell=True)
         #atoms.rotate(self.WD_dial_x.value(), 'x', rotate_cell=False)
         #atoms.rotate(self.WD_dial_x.value(), 'x', rotate_cell=True)

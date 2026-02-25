@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 slurm*out
-data/
+###data/
 bulou/
 *.sh
 *.h5
