@@ -26,7 +26,8 @@ class FEFF:
             'debye_temp'  :315.0,
             'edge':  "K",
             'scf_radius': 5.0,
-            'rpath': 5.0,
+            'rpath': 5.0,     # typique 2.2xdistance plus proches voisins. changer pour étudier la cvg des spectres
+            'EXAFS' : 20.0,   # xkmax - default 20 ang.^-1
             'feff_dir' : '/home/bulou/ownCloud/Notebooks/M2P2_HEA/Home/Modelisation/ATOMOD/JFEFF/feff90/unix/'
             }
         
@@ -36,6 +37,7 @@ class FEFF:
                           filename:str="feff.inp",
                           rmax:float=8.0,
                           title: str = "FEFF Calculation",
+                          rpath=5.0,
                           config=None):
 
         if config is None:
@@ -50,32 +52,19 @@ class FEFF:
 
         with open(filename, "w") as f:
             # En-tête
-            new=False
-            if new:
-                f.write(f'PRINT  1     ! niveau de sortie\n')
-                f.write(f'TITLE {title} - Atome absorbeur : {absorber.elt}\n')
-                f.write(f'CONTROLS\n')
-                f.write(f'  PLASMON_BUTTON  ON  ! pour métaux\n')
-                f.write(f'  XANES  OFF   ! juste EXAFS\n')
-                f.write(f'  FEFF    ON\n')
-                f.write(f'  EXCHANGE  ON\n')
-                f.write(f'  COREHOLE  GS            ! ground state (standard EXAFS)\n')
-                f.write(f'  RPHASES                 ! relativiste obligatoire Ir/Rh L3 !\n')
-                f.write(f'  RECIPROCAL  OFF\n')
-                
-                f.write(f'PRINT         ! détails sur les potentiels\n')
-                f.write(f'EDGE          K  ! bord K (ou L3...)\n')
-                f.write(f'RPATH    10.0  ! rayon cluster (Å)\n')
-                f.write(f'RMAX    12.0   ! rayon max diffusion\n')
-                f.write(f'SCF  5.0     ! auto‑consistance (RY)\n')
-                f.write(f'FMS  8.0  2    ! multiple scattering jusqu’à 8 Å\n')
-            else:
-                f.write(f'TITLE {title} - Atome absorbeur : {absorber.elt}\n')
-                f.write(f'DEBYE {config["debye_temp_0"]} {config["debye_temp"]} 0\n')
-                f.write(f'EDGE {config["edge"]}\n')
-                f.write(f'SCF {config["scf_radius"]}\n')
-                f.write(f'RPATH {config["rpath"]}\n')
-                f.write(f'CONTROL\t1 1 1 1 1 1\n')
+            f.write(f'TITLE {title} - Atome absorbeur : {absorber.elt}\n')
+            # *Cu at 190K, Debye temp 315K (Ashcroft & Mermin)
+            # DEBYE 190 315 0
+            f.write(f'DEBYE {config["debye_temp_0"]} {config["debye_temp"]} 0\n')
+            f.write(f'SCF {config["scf_radius"]}\n')
+
+            f.write(f'EXAFS {config["EXAFS"]}\n')
+            f.write(f'RPATH {rpath}\n')
+            f.write(f'EDGE {config["edge"]}\n')
+
+
+
+            f.write(f'CONTROL\t1 1 1 1 1 1\n')
             # Section POTENTIALS
             f.write(f'\nPOTENTIALS\n')
             f.write(f' {0:>4d} {Z_from_elt[absorber.elt]:>5d} {absorber.elt:>7s}\n')
@@ -111,10 +100,20 @@ class FEFF:
         # Liste ordonnée des programmes FEFF à exécuter
         #conf={"rdinp":True,"atomic":False}
         for pgm in feff_pgm.keys():
-            print(f"{pgm} -> {feff_pgm[pgm].isChecked()}")
-            if feff_pgm[pgm].isChecked():
-                subprocess.run([self.config["feff_dir"]+"/"+pgm])
-                print(f"{pgm} -> DONE!")
+            try:
+                print(f"{pgm} -> {feff_pgm[pgm].isChecked()}")
+                if feff_pgm[pgm].isChecked():
+                    print(f"### FEFF ### {pgm} is running...")
+                    result=subprocess.run([self.config["feff_dir"]+"/"+pgm],
+                                          capture_output=True, 
+                                          text=True, 
+                                          check=True)
+                    print(f"{result.stdout.strip()}")
+                    print(f"... -> DONE!")
+                    print(100*"-")
+            except subprocess.CalledProcessError as e:
+                # e.stderr contient le message d'erreur officiel du programme
+                print(f"La commande {pgm} a échoué avec l'erreur : {e.stderr}")
         print(f"EXAFS calculation DONE!")
     # def _on_feff_pgm_checkbox_changed(self):
     #     pass

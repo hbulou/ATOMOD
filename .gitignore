@@ -31,3 +31,4 @@ Archive/
 fort.*
 GUI/feff.inp
 GUI/moleculeglwidget-old.py
+*.log

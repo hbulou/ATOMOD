@@ -13,7 +13,10 @@ from PyQt6.QtWidgets import (QMainWindow,QApplication,QTableWidgetItem,QFileDial
                              QMessageBox,QProgressBar,QAbstractItemView,QCheckBox)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence,QIntValidator, QGuiApplication
+
+import shutil
 from pathlib import Path
+
 import paramiko
 import pandas as pd
 from pandasmodel import PandasModel
@@ -96,7 +99,11 @@ class Config:
         "mkgtr",
         "path", 
         "genfmt",
-        "ff2x", "sfconv", "compton", "eels", "ldos"
+        "ff2x",
+        "sfconv",
+        "compton",
+        "eels",
+        "ldos"
     ]
 
 
@@ -423,10 +430,11 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
 
         self.plot_exafs = self.WD_PL_EXAFS
         self.WD_compute_XAS.clicked.connect(self.FEFF)
+        self.WD_reset_XAS.clicked.connect(self.reset_all_FEFF_calculations)
         self.feff_pgm__checkboxes = {}  # Dictionnaire feff pgm -> QCheckBox
         for pgm in Config.FEFF_PGM:
             checkbox = QCheckBox(f"{pgm}")
-            if pgm in ["rdinp","atomic","dmdw","pot","screen","xsph","mkgtr","path","genfmt","ff2x","sfconv","compton"]:
+            if pgm in ["rdinp","atomic","dmdw","pot","screen","xsph","path","genfmt","ff2x","sfconv","compton"]:
                 checkbox.setChecked(True)  # Coché par défaut
             else:
                 checkbox.setChecked(False)  # Coché par défaut
@@ -438,44 +446,92 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.XAS={}
         self.feff=FEFF()
     ### ----------------------------------------------------------------------------------###
-    def FEFF(self):
+    def reset_all_FEFF_calculations(self):
+        """Réinitialise tous les modules de calcul (FEFF, XAS, Optimisation, etc.)"""
         
+        # --- 1. Nettoyage de l'interface graphique (Widgets dynamiques) ---
+        # Pour les checkboxes EXAFS/FEFF
+        if hasattr(self, 'WD_GD_exafs_curve'):
+            clear_layout(self.WD_GD_exafs_curve)
+        
+        # --- 2. Purge des données en mémoire ---
+        self.XAS = {}
+        self.exafs_curve_checkboxes = {}
+        self.composition = []
+    
+        # --- 3. Nettoyage des Graphiques (PyQtGraph) ---
+        # On efface toutes les courbes des différents plots
+        if hasattr(self, 'plot_exafs'):
+            self.plot_exafs.clear()
+        if hasattr(self, 'plot'): # Le plot d'optimisation
+            self.plot.clear()
+            # Si tu avais une légende, il faut parfois la recréer après un clear()
+            # self.plot.addLegend() 
+        
+        # --- 4. Réinitialisation des listes de courbes ---
+        self.curve_exafs = []
+        if hasattr(self, 'curve'):
+            self.curve = None
+
+        # --- 5. Rafraîchissement des tableaux de l'interface ---
+        if hasattr(self, 'WD_table_list_elt'):
+            self.WD_table_list_elt.setRowCount(0)
+        
+        # --- 6. Nettoyage des fichiers temporaires (Optionnel mais conseillé) ---
+        for tmp_file in ['xmu.dat', 'feff.inp', 'paths.dat']:
+            if os.path.exists(tmp_file):
+                try:
+                    os.remove(tmp_file)
+                except:
+                    pass
+
+        logger.info("Tous les calculs ont été réinitialisés.")
+        self.statusBar().showMessage("Calculs réinitialisés.", 3000)
+    ### ----------------------------------------------------------------------------------###
+    def FEFF(self):
+        print(f"####### FEFF PART #######################")
         if not hasattr(self, 'molecule') or self.molecule is None:
             self._show_error("Erreur",
                              f" Aucune structure atomique disponible.")
             return
-
+        # ----------------------------------------
+        # liste des atomes absorbeurs à considérer
+        # ----------------------------------------
         list_ads=[]
-        if "-" in self.WD_le_selected_atom.text():
-            idx=self.WD_le_selected_atom.text().split("-")
-            list_ads = list(range(int(idx[0]), int(idx[-1])+1))
-            print(list_ads)
+        if "-" not in self.WD_le_selected_atom.text() and "all" not in self.WD_le_selected_atom.text():
+            list_ads.append(int(self.WD_le_selected_atom.text()))
+        else:
+            if "-" in self.WD_le_selected_atom.text():
+                idx=self.WD_le_selected_atom.text().split("-")
+                list_ads = list(range(int(idx[0]), int(idx[-1])+1))
 
-        if "all" in self.WD_le_selected_atom.text():
-            if len(self.exafs_curve_checkboxes)>0:
-                del self.exafs_curve_checkboxes
-                del self.curve_exafs
-                del self.XAS
-                self.exafs_curve_checkboxes={}
-                self.curve_exafs=[]
-                self.XAS={}
-
-            idx=self.WD_le_selected_atom.text().split("-")
-            list_ads = list(range(len(self.molecule.atoms)))
-            print(list_ads)
-
+            if "all" in self.WD_le_selected_atom.text():
+                idx=self.WD_le_selected_atom.text().split("-")
+                list_ads = list(range(len(self.molecule.atoms)))
+        print(f"list of absorber atoms: {list_ads}")
+        # -----------------------------------------------------            
+        # calcul des spectres pour chaque atome dans list_ads
+        # -----------------------------------------------------            
         for  absorber_idx in list_ads:
-            logger.info(100*"#")
-            logger.info(f"### FEFF ### absorber {absorber_idx}")
-            logger.info(100*"#")
+            print(100*"#")
+            print(f"### FEFF ### absorber {absorber_idx}")
+            print(100*"#")
             self.XAS[str(absorber_idx)]=XAS()
-        
+            rpath=float(self.WD_le_rpath.text())
+            
             self.feff.create_input_file(self.molecule,
-                                        absorber_idx=absorber_idx)
+                                        absorber_idx=absorber_idx,
+                                        rpath=rpath)
+            shutil.copy2("feff.inp",f"feff_{self.molecule.atoms[absorber_idx].elt}_{absorber_idx}.inp")
+
             self.feff.run(self.feff_pgm__checkboxes)
 
             try:
                 energy, chi = np.loadtxt('xmu.dat', comments='#', usecols=(0, 4), unpack=True)
+                xmu = Path("xmu.dat")
+                # Renomme (ou déplace) le fichier instantanément
+                xmu.rename(Path(f"xmu_{self.molecule.atoms[absorber_idx].elt}_{absorber_idx}.dat"))
+                
                 self.XAS[str(absorber_idx)].energy=energy
                 self.XAS[str(absorber_idx)].chi=chi
                 # Vérification rapide
@@ -503,8 +559,8 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             print(self.XAS[str(absorber_idx)].energy[0],self.XAS[str(absorber_idx)].energy[-1],len(self.XAS[str(absorber_idx)].energy))
             series[elt].append((self.XAS[str(absorber_idx)].energy, self.XAS[str(absorber_idx)].chi))
 
-
-        ncol=int(np.sqrt(len(list_ads)+len(series)))
+        total_items = len(list_ads) + len(series)
+        ncol = int(np.ceil(np.sqrt(total_items))) if total_items > 0 else 1
         nrow=int(np.sqrt(len(list_ads)+len(series))/ncol)
         for  i,absorber_idx in enumerate(list_ads):
             idx_row=i//ncol
@@ -516,6 +572,18 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             print(elt)
             self.XAS[f"{elt}_mean"]=XAS()
             self.XAS[f"{elt}_mean"].energy,self.XAS[f"{elt}_mean"].chi, _ = mk_mean(series[elt])
+
+            donnees_combinees = np.column_stack((self.XAS[f"{elt}_mean"].energy,self.XAS[f"{elt}_mean"].chi))
+            np.savetxt(
+                f'mean{elt}.dat',               # Le nom du fichier
+                donnees_combinees,        # Le tableau 2D créé juste au-dessus
+                fmt='%.6f',               # Le format (ici : 6 chiffres après la virgule)
+                delimiter='    ',         # Le séparateur entre les colonnes (ici : 4 espaces)
+                header='#energy       Mean_mu0', # (Optionnel) Ajoute un en-tête
+                comments='# '             # (Optionnel) Le caractère pour commenter l'en-tête
+            )
+
+            
             self.XAS[f"{elt}_mean"].idx_curve=len(self.curve_exafs)            
             self.curve_exafs.append(self.plot_exafs.plot(pen=pg.mkPen('r', width=2), name=""))
             self.curve_exafs[-1].setData(self.XAS[f"{elt}_mean"].energy,self.XAS[f"{elt}_mean"].chi)
