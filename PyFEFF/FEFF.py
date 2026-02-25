@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 
 
+
 #    def __init__(self):
 #        """Constantes de configuration de l'application."""
 
@@ -33,6 +34,7 @@ class FEFF:
                           molecule:Crystal,
                           absorber_idx: int=0,
                           filename:str="feff.inp",
+                          rmax:float=8.0,
                           title: str = "FEFF Calculation",
                           config=None):
 
@@ -41,18 +43,39 @@ class FEFF:
             config=self.config
         
         # Positionner l'origine sur l'atome absorbeur
-        molecule.origin_at(origin=molecule.atoms[absorber_idx].q)
-        absorber = molecule.atoms[absorber_idx]
+        tmp_molecule=molecule.duplicate()
+        tmp_molecule.origin_at(origin=molecule.atoms[absorber_idx].q)
+        absorber = tmp_molecule.atoms[absorber_idx]
+
 
         with open(filename, "w") as f:
             # En-tête
-            f.write(f'TITLE {title} - Atome absorbeur : {absorber.elt}\n')
-            f.write(f'DEBYE {config["debye_temp_0"]} {config["debye_temp"]} 0\n')
-            f.write(f'EDGE {config["edge"]}\n')
-            f.write(f'SCF {config["scf_radius"]}\n')
-            f.write(f'RPATH {config["rpath"]}\n')
-            f.write(f'CONTROL\t1 1 1 1 1 1\n')
-
+            new=False
+            if new:
+                f.write(f'PRINT  1     ! niveau de sortie\n')
+                f.write(f'TITLE {title} - Atome absorbeur : {absorber.elt}\n')
+                f.write(f'CONTROLS\n')
+                f.write(f'  PLASMON_BUTTON  ON  ! pour métaux\n')
+                f.write(f'  XANES  OFF   ! juste EXAFS\n')
+                f.write(f'  FEFF    ON\n')
+                f.write(f'  EXCHANGE  ON\n')
+                f.write(f'  COREHOLE  GS            ! ground state (standard EXAFS)\n')
+                f.write(f'  RPHASES                 ! relativiste obligatoire Ir/Rh L3 !\n')
+                f.write(f'  RECIPROCAL  OFF\n')
+                
+                f.write(f'PRINT         ! détails sur les potentiels\n')
+                f.write(f'EDGE          K  ! bord K (ou L3...)\n')
+                f.write(f'RPATH    10.0  ! rayon cluster (Å)\n')
+                f.write(f'RMAX    12.0   ! rayon max diffusion\n')
+                f.write(f'SCF  5.0     ! auto‑consistance (RY)\n')
+                f.write(f'FMS  8.0  2    ! multiple scattering jusqu’à 8 Å\n')
+            else:
+                f.write(f'TITLE {title} - Atome absorbeur : {absorber.elt}\n')
+                f.write(f'DEBYE {config["debye_temp_0"]} {config["debye_temp"]} 0\n')
+                f.write(f'EDGE {config["edge"]}\n')
+                f.write(f'SCF {config["scf_radius"]}\n')
+                f.write(f'RPATH {config["rpath"]}\n')
+                f.write(f'CONTROL\t1 1 1 1 1 1\n')
             # Section POTENTIALS
             f.write(f'\nPOTENTIALS\n')
             f.write(f' {0:>4d} {Z_from_elt[absorber.elt]:>5d} {absorber.elt:>7s}\n')
@@ -67,14 +90,15 @@ class FEFF:
             )
 
             # Autres atomes
-            for atm in molecule.atoms:
+            for atm in tmp_molecule.atoms:
                 if atm.idx != absorber.idx:
-                    # Trouver l'indice du potentiel
-                    ipot = molecule.list_elt.index(atm.elt) + 1
-
                     # Calculer la distance
                     R = atm.q - absorber.q
                     d = np.linalg.norm(R)
+                    if d>rmax: continue
+                    # Trouver l'indice du potentiel
+                    ipot = molecule.list_elt.index(atm.elt) + 1
+
 
                     f.write(
                         f' {atm.q[0]:>10.6f} {atm.q[1]:>10.6f} {atm.q[2]:>10.6f} '
@@ -82,6 +106,7 @@ class FEFF:
                     )
 
             f.write(f'END\n')
+            del tmp_molecule
     def run(self,feff_pgm):
         # Liste ordonnée des programmes FEFF à exécuter
         #conf={"rdinp":True,"atomic":False}
@@ -115,15 +140,24 @@ def FEFF_create_parameter_file(
         molecule: Crystal,
         absorber_idx: int = 0,
         config= None,
+        rmax:float=8.0,
         title: str = "FEFF Calculation") -> None:
 
+    
     if config is None:
         config = FEFF_config()
 
     # Positionner l'origine sur l'atome absorbeur
-    molecule.origin_at(origin=molecule.atoms[absorber_idx].q)
-    absorber = molecule.atoms[absorber_idx]
+    tmp_molecule=molecule.duplicate()
+    tmp_molecule.origin_at(origin=molecule.atoms[absorber_idx].q)
+    absorber = tmp_molecule.atoms[absorber_idx]
 
+
+    for atm in molecule.atoms:
+        logger.info(f"###     MOLECULE ### {atm.idx} {atm.elt} {atm.q}")
+    for atm in tmpmolecule.atoms:
+        logger.info(f"### TMP_MOLECULE ### {atm.idx} {atm.elt} {atm.q}")
+    
     with open(filename, "w") as f:
         # En-tête
         f.write(f'TITLE {title} - Atome absorbeur : {absorber.elt}\n')
@@ -147,22 +181,23 @@ def FEFF_create_parameter_file(
         )
             
         # Autres atomes
-        for atm in molecule.atoms:
+        for atm in tmp_molecule.atoms:
             if atm.idx != absorber.idx:
-                # Trouver l'indice du potentiel
-                ipot = molecule.list_elt.index(atm.elt) + 1
-            
                 # Calculer la distance
                 R = atm.q - absorber.q
                 d = np.linalg.norm(R)
-                    
+                if d>rmax: continue
+
+                # Trouver l'indice du potentiel
+                ipot = molecule.list_elt.index(atm.elt) + 1
                 f.write(
                     f' {atm.q[0]:>10.6f} {atm.q[1]:>10.6f} {atm.q[2]:>10.6f} '
                     f'{ipot:>4d} {atm.elt:>5s} {d:>8.4f}\n'
                 )
             
         f.write(f'END\n')
-
+        del tmp_molecule
+        
 class FEFF_calculator:
     """Classe pour gérer les calculs FEFF"""
     

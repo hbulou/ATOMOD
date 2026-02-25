@@ -29,4 +29,5 @@ Archive/
 *.inp
 *.bin
 fort.*
-feff.inp
+GUI/feff.inp
+GUI/moleculeglwidget-old.py

@@ -452,12 +452,22 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             print(list_ads)
 
         if "all" in self.WD_le_selected_atom.text():
+            if len(self.exafs_curve_checkboxes)>0:
+                del self.exafs_curve_checkboxes
+                del self.curve_exafs
+                del self.XAS
+                self.exafs_curve_checkboxes={}
+                self.curve_exafs=[]
+                self.XAS={}
+
             idx=self.WD_le_selected_atom.text().split("-")
             list_ads = list(range(len(self.molecule.atoms)))
             print(list_ads)
 
         for  absorber_idx in list_ads:
-        
+            logger.info(100*"#")
+            logger.info(f"### FEFF ### absorber {absorber_idx}")
+            logger.info(100*"#")
             self.XAS[str(absorber_idx)]=XAS()
         
             self.feff.create_input_file(self.molecule,
@@ -483,7 +493,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             self.XAS[str(absorber_idx)].checkbox.setChecked(True)  # Coché par défaut
             self.XAS[str(absorber_idx)].checkbox.stateChanged.connect(self._on_feff_curve_checkbox_changed)
             self.exafs_curve_checkboxes[str(absorber_idx)] = self.XAS[str(absorber_idx)].checkbox
-            self.WD_GD_exafs_curve.addWidget(self.XAS[str(absorber_idx)].checkbox)
+
 
         # Initialise automatiquement avec une liste vide
         series = defaultdict(list)
@@ -492,7 +502,17 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             elt=self.molecule.atoms[absorber_idx].elt
             print(self.XAS[str(absorber_idx)].energy[0],self.XAS[str(absorber_idx)].energy[-1],len(self.XAS[str(absorber_idx)].energy))
             series[elt].append((self.XAS[str(absorber_idx)].energy, self.XAS[str(absorber_idx)].chi))
-        for elt in series.keys():
+
+
+        ncol=int(np.sqrt(len(list_ads)+len(series)))
+        nrow=int(np.sqrt(len(list_ads)+len(series))/ncol)
+        for  i,absorber_idx in enumerate(list_ads):
+            idx_row=i//ncol
+            idx_col=i%ncol
+            self.WD_GD_exafs_curve.addWidget(self.XAS[str(absorber_idx)].checkbox,idx_row,idx_col)
+        last_idx_row=idx_row
+        last_idx_col=idx_col
+        for i,elt in enumerate(series.keys()):
             print(elt)
             self.XAS[f"{elt}_mean"]=XAS()
             self.XAS[f"{elt}_mean"].energy,self.XAS[f"{elt}_mean"].chi, _ = mk_mean(series[elt])
@@ -503,13 +523,48 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             self.XAS[f"{elt}_mean"].checkbox.setChecked(True)  # Coché par défaut
             self.XAS[f"{elt}_mean"].checkbox.stateChanged.connect(self._on_feff_curve_checkbox_changed)
             self.exafs_curve_checkboxes[f"{elt}_mean"] = self.XAS[f"{elt}_mean"].checkbox
-            self.WD_GD_exafs_curve.addWidget(self.XAS[f"{elt}_mean"].checkbox)
+
+            self.WD_GD_exafs_curve.addWidget(self.XAS[f"{elt}_mean"].checkbox,last_idx_row+1,i)
+        for i,elt in enumerate(series.keys()):
+            checkbox = QCheckBox(f"Show {elt}")
+            checkbox.setChecked(True)  # Coché par défaut
+            checkbox.stateChanged.connect(self._on_feff_curves_show)
+            self.exafs_curve_checkboxes[f"{elt}_show"] = checkbox
+
+            self.WD_GD_exafs_curve.addWidget(self.exafs_curve_checkboxes[f"{elt}_show"],last_idx_row+2,i)
         
         #print(len(self.curve_exafs))
         #FEFF_info(idx=self.WD_le_selected_atom.text())
         
         #FEFF_create_parameter_file("feff.inp",self.molecule)
         #calculator=FEFF_calculator(config=FEFF_config())
+
+    def _on_feff_curves_show(self):
+        for i,elt in enumerate(self.exafs_curve_checkboxes.keys()):
+            print(20*"-")
+            if "show" in elt:
+                print(i,elt,self.exafs_curve_checkboxes[elt].isChecked())
+                print(20*"-")
+                for curve in self.XAS.keys():
+                    if elt.split("_")[0] in self.XAS[curve].checkbox.text():
+                        print(curve,self.XAS[curve].idx_curve,self.XAS[curve].checkbox.text())
+                        if self.exafs_curve_checkboxes[elt].isChecked() :
+                            self.curve_exafs[self.XAS[curve].idx_curve].setVisible(True)
+                            self.XAS[curve].checkbox.setChecked(True)
+                        else:
+                            self.curve_exafs[self.XAS[curve].idx_curve].setVisible(False)
+                            self.XAS[curve].checkbox.setChecked(False)
+                #for j,curve in enumerate(self.exafs_curve_checkboxes.keys()):
+                #    if elt.split("_")[0] in self.exafs_curve_checkboxes[curve].text() and "Show" not in self.exafs_curve_checkboxes[curve].text():
+                #        print(self.exafs_curve_checkboxes[curve].text())
+                #        if self.exafs_curve_checkboxes[elt].isChecked() :
+                #            print(curve)
+                #            #self.curve_exafs[curve].setVisible(True)
+                #        else:
+                #            print(curve)
+                #            #self.curve_exafs[curve].setVisible(False)
+        #self._on_feff_curve_checkbox_changed()
+        self.plot_exafs.autoRange()
     def _on_feff_curve_checkbox_changed(self):
         #self.plot_exafs.clear()
         #print(len(self.curve_exafs))
@@ -1343,7 +1398,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         print(f"loading {filename}")
         if not filename:
             return  # Sortir si vide  
-        self.molecule=Crystal(empty="Yes")
+        self.molecule=Crystal()
         self.molecule.load_file(filename)
         self.molecule.MassCenter()
         self.molecule.get_element_distribution()
@@ -1423,7 +1478,8 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
             self.get_composition()
 
             # génération du bulk
-            Bulk=Crystal(Nx=N,Ny=N,Nz=N,elt=self.composition[0])
+            Bulk=Crystal()
+            Bulk.build(Nx=N,Ny=N,Nz=N,elt=self.composition[0])
             # découpe de la nanoparticule
             Bulk.origin_at_mass_center()
             self.molecule=Bulk.transform(radius=10*float(self.WD_lineedit_radius.text()))
