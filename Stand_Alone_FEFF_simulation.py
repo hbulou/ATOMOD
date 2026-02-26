@@ -147,7 +147,7 @@ def mk_mean2(series_list):
 # ##########################################################################################
 def main():
     config={
-        'xyzfile': "./GUI/NP.xyz",
+        'xyzfile': "data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz",  #"./GUI/NP.xyz",
         'absorbers': "all",
         'rpath':5.0,
         'edge':{'Ru':'K','Rh':'K','Pd':'K','Ir':'L3','Pt':'L3'}
