@@ -44,6 +44,14 @@ class FEFF:
             f.write(f'CONTROL\t1 1 1 1 1 1\n')            
             
             
+            list_atm={}
+            #     # Autres atomes
+            for atm in tmp_molecule.atoms:
+                if atm.idx != absorber.idx:
+                    # Calculer la distance
+                    R = atm.q - absorber.q
+                    d = np.linalg.norm(R)
+                    if d<self.config["RMAX"]: list_atm[atm.elt]=atm.idx
 
 
             # Section POTENTIALS
@@ -51,21 +59,22 @@ class FEFF:
             f.write(f' {0:>4d} {Z_from_elt[absorber.elt]:>5d} {absorber.elt:>7s}\n')
             #     # Liste des éléments uniques 
             for i, elt in enumerate(molecule.list_elt, start=1):
-                f.write(f' {i:>4d} {Z_from_elt[elt]:>5d} {elt:>7s}\n')
+                if elt in list_atm.keys():
+                    f.write(f' {i:>4d} {Z_from_elt[elt]:>5d} {elt:>7s}\n')
             # Section ATOMS
             f.write(f'\nATOMS\n')
             f.write(
                 f' {absorber.q[0]:>10.6f} {absorber.q[1]:>10.6f} {absorber.q[2]:>10.6f} '
                 f'{0:>4d} {absorber.elt:>5s} {0:>8.4f} (Absorbeur)\n'
                  )
-            
+
             #     # Autres atomes
             for atm in tmp_molecule.atoms:
                 if atm.idx != absorber.idx:
                     # Calculer la distance
                     R = atm.q - absorber.q
                     d = np.linalg.norm(R)
-                    if d>self.config["RMAX"]: continue
+                    if d>self.config["RMAX"]: continue 
                     # Trouver l'indice du potentiel
                     ipot = molecule.list_elt.index(atm.elt) + 1
                     f.write(
@@ -74,7 +83,9 @@ class FEFF:
                     )
 
             f.write(f'END\n')
+
         del tmp_molecule
+
     def run(self,filename,config,list_pgm=['rdinp','pot']):
         shutil.copy2(filename,"feff.inp")
         for pgm in list_pgm:
