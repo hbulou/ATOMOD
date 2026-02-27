@@ -16,7 +16,7 @@ class FEFF:
             'EXAFS' : 20.0,   # xkmax - default 20 ang.^-1
             'EDGE':  "K",
             'RMAX':8.0,
-            'feff_dir':  '/home/bulou/ownCloud/Notebooks/M2P2_HEA/Home/Modelisation/ATOMOD/JFEFF/feff90/unix/'
+            'feff_dir':  './JFEFF/feff90/unix/'
         }
     def create_input_file(self,
                           molecule:Crystal,
@@ -44,7 +44,8 @@ class FEFF:
             f.write(f'CONTROL\t1 1 1 1 1 1\n')            
             
             
-            #     f.write(f'CONTROL\t1 1 1 1 1 1\n')
+
+
             # Section POTENTIALS
             f.write(f'\nPOTENTIALS\n')
             f.write(f' {0:>4d} {Z_from_elt[absorber.elt]:>5d} {absorber.elt:>7s}\n')
