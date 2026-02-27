@@ -6,10 +6,8 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
-sys.path.append('/home/bulou/src/lib/site-packages/')
-from HBPy.Crystal import Crystal
-#from HBPy.ForceField import ForceField
 
+from Molecule.Crystal import Crystal  # Crystal est une classe définie dans le fichier Crystal.py se trouvant dans le répertoire HBPy/Molecule
 from PyFEFF.FEFF import FEFF
 
 
@@ -147,8 +145,8 @@ def mk_mean2(series_list):
 # ##########################################################################################
 def main():
     config={
-        'xyzfile': "data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz",  #"./GUI/NP.xyz",
-        'absorbers': "all",
+        'xyzfile': "./GUI/NP.xyz",#"data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz",  #
+        'absorbers': "1-2",# "all",
         'rpath':5.0,
         'edge':{'Ru':'K','Rh':'K','Pd':'K','Ir':'L3','Pt':'L3'}
         }

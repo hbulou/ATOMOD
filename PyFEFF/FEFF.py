@@ -1,5 +1,5 @@
-from HBPy.Crystal import Crystal
-from HBPy.Atom import Z_from_elt
+from Molecule.Atom import Z_from_elt  # Z_from_elt est une méthode de la classe Atom définie dans le fichier Atom.py se trouvant dans le répertoire Molecule
+import Molecule.Crystal as Crystal
 import numpy as np
 #from pathlib import Path
 import subprocess
@@ -36,7 +36,7 @@ class FEFF:
             f.write(f"TITLE {self.config['TITLE']}\n")
             #     # *Cu at 190K, Debye temp 315K (Ashcroft & Mermin)
             #     # DEBYE 190 315 0
-            f.write(f"DEBYE {T} {self.config["DEBYE_TEMP"]} 0\n")
+            f.write(f"DEBYE {T} {self.config['DEBYE_TEMP']} 0\n")
             f.write(f"SCF {self.config['SCF_RADIUS']}\n")
             f.write(f'EXAFS {self.config["EXAFS"]}\n')
             f.write(f"RPATH {self.config['RPATH']}\n")
