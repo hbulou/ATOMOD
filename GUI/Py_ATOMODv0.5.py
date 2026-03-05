@@ -24,10 +24,10 @@ import pyqtgraph as pg
 #from AtomTableModel import AtomTableModel  # ou collez la classe ci-dessus dans ce fichier
 from collections import defaultdict
 
-sys.path.append('/home/bulou/src/lib/site-packages/')
-from HBPy.Crystal import Crystal
-from HBPy.ForceField import ForceField
-import HBPy.Atom
+#sys.path.append('/home/bulou/src/lib/site-packages/')
+from Molecule.Crystal import Crystal
+from Molecule.ForceField import ForceField
+import Molecule.Atom
 
 
 import numpy as np

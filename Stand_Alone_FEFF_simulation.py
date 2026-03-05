@@ -145,10 +145,10 @@ def mk_mean2(series_list):
 # ##########################################################################################
 def main():
     config={
-        'xyzfile': "./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz", #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz",  #"./GUI/NP.xyz",#
+        'xyzfile': "./NiIrRu/Ir/NP.xyz",  #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz", #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz",  #"./GUI/NP.xyz",#
         'absorbers':  "all", #"1-2",#
         'rpath':5.0,
-        'edge':{'Ru':'K','Rh':'K','Pd':'K','Ir':'L3','Pt':'L3'}
+        'edge':{'Ni':'K','Ru':'K','Rh':'K','Pd':'K','Ir':'L3','Pt':'L3'}
         }
     molecule=Crystal()
     molecule.load_file(config['xyzfile'])

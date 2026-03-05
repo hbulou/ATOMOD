@@ -1,1 +1,0 @@
-/home/bulou/src/lib/site-packages/HBPy/MoleculeGLWidget/moleculeglwidget.py
