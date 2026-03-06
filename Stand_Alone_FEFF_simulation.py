@@ -151,8 +151,9 @@ def main():
         'xyzfilep3': "./HEA_NiRuIr/RuNiIr/NP.xyz",
         'xyzfilep4': "./HEA_NiRuIr/RuIrNi/NP.xyz",
         'xyzfilep5': "./HEA_NiRuIr/IrNiRu/NP.xyz",
-        'xyzfile':   "./HEA_NiRuIr/IrRuNi/NP.xyz",  
-        'absorbers':  "all", #"1-2",#
+        'xyzfilep6':   "./HEA_NiRuIr/IrRuNi/NP.xyz",
+        'xyzfile':   "NP.xyz",  
+        'absorbers':  "139-140-", #"all", #"1-2",#
         'rpath':5.0,
         'edge':{'Ni':'K','Ru':'K','Rh':'K','Pd':'K','Ir':'L3','Pt':'L3'}
         }
