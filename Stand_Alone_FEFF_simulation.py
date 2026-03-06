@@ -144,8 +144,14 @@ def mk_mean2(series_list):
     return energy_common, f1_mean, f2_mean, f3_mean, f4_mean, f5_mean
 # ##########################################################################################
 def main():
+    #         'xyzfile': "./HEA_NiRuIr/NiRuIr/NP.xyz",  #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz", #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz",  #"./GUI/NP.xyz",#
     config={
-        'xyzfile': "./NiIrRu/Ir/NP.xyz",  #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz", #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz",  #"./GUI/NP.xyz",#
+        'xyzfilep1': "./HEA_NiRuIr/NiRuIr/NP.xyz",  
+        'xyzfilep2': "./HEA_NiRuIr/NiIrRu/NP.xyz",
+        'xyzfilep3': "./HEA_NiRuIr/RuNiIr/NP.xyz",
+        'xyzfilep4': "./HEA_NiRuIr/RuIrNi/NP.xyz",
+        'xyzfilep5': "./HEA_NiRuIr/IrNiRu/NP.xyz",
+        'xyzfile':   "./HEA_NiRuIr/IrRuNi/NP.xyz",  
         'absorbers':  "all", #"1-2",#
         'rpath':5.0,
         'edge':{'Ni':'K','Ru':'K','Rh':'K','Pd':'K','Ir':'L3','Pt':'L3'}
