@@ -1,3 +1,4 @@
+import argparse
 import sys
 from pathlib import Path
 
@@ -144,13 +145,25 @@ def mk_mean2(series_list):
     return energy_common, f1_mean, f2_mean, f3_mean, f4_mean, f5_mean
 # ##########################################################################################
 def main():
+    # --- Configuration de l'analyseur d'arguments ---
+    parser = argparse.ArgumentParser(description="Simulation FEFF Stand-alone")
+    # Ajout de l'argument optionnel --xyzfile
+    # Si non fourni, on utilise la valeur par défaut actuelle
+    parser.add_argument(
+        "--xyzfile", 
+        type=str, 
+        default="./NP.xyz",
+        help="Chemin vers le fichier de structure .xyz"
+    )
+    args = parser.parse_args()
     #         'xyzfile': "./HEA_NiRuIr/NiRuIr/NP.xyz",  #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz", #"./data/NP/RuRhPdIrPt_wulff807D_eq_10K_299.xyz",  #"./GUI/NP.xyz",#
     config={
-        'xyzfile':   "NPmix.xyz",  
+        'xyzfile':   args.xyzfile,
         'absorbers':  "all", #"all", #"1-2",#
         'rpath':5.0,
         'edge':{'Ni':'K','Ru':'K','Rh':'K','Pd':'K','Ir':'L3','Pt':'L3'}
         }
+    print(f"xyzfile: {config['xyzfile']}")
     molecule=Crystal()
     molecule.load_file(config['xyzfile'])
     molecule.MassCenter()
