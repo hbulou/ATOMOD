@@ -9,10 +9,11 @@ from HEAS import HEAS
 
 
 from PyQt6 import QtWidgets
-from PyQt6.QtWidgets import (QMainWindow,QApplication,QTableWidgetItem,QFileDialog,QInputDialog,
+from PyQt6.QtWidgets import (QMainWindow,QApplication,QTableWidgetItem,QFileDialog,
+                             QInputDialog,QStatusBar,
                              QMessageBox,QProgressBar,QAbstractItemView,QCheckBox)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeySequence,QIntValidator, QGuiApplication
+from PyQt6.QtGui import (QKeySequence,QIntValidator, QGuiApplication,QCloseEvent)
 
 import shutil
 from pathlib import Path
@@ -25,10 +26,10 @@ import pyqtgraph as pg
 from collections import defaultdict
 
 #sys.path.append('/home/bulou/src/lib/site-packages/')
-from Molecule.Crystal import Crystal
-from Molecule.ForceField import ForceField
-import Molecule.Atom
-
+from HBPy.Molecule.Crystal import Crystal
+from HBPy.Molecule.ForceField import ForceField
+import HBPy.Molecule.Atom
+from HBPy.DataViewer.XYplot import DatViewerWidget
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -263,6 +264,39 @@ def clear_layout(widget: QtWidgets.QWidget):
         QtWidgets.QWidget().setLayout(layout)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Fenêtre secondaire qui contient le DatViewerWidget
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DatViewerWindow(QMainWindow):
+    """
+    Fenêtre externe dédiée au DatViewerWidget.
+    Elle informe la fenêtre principale quand elle est fermée via
+    le callback on_close_callback, afin de resynchroniser le bouton.
+    """
+
+    def __init__(self, on_close_callback, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("DAT File Viewer — Fenêtre externe")
+        self.resize(1200, 750)
+        self.on_close_callback = on_close_callback
+
+        # ── Widget central ────────────────────────────────────────────────
+        self.viewer = DatViewerWidget(apply_stylesheet=True)
+
+        # Barre de statut de cette fenêtre
+        status_bar = QStatusBar()
+        self.setStatusBar(status_bar)
+        self.viewer.status_message.connect(status_bar.showMessage)
+        self.viewer.hide_internal_statusbar()
+
+        self.setCentralWidget(self.viewer)
+        self.setStyleSheet("QMainWindow { background-color: #1e2127; }")
+
+    def closeEvent(self, event: QCloseEvent):
+        """Notifie la fenêtre principale que cette fenêtre a été fermée."""
+        self.on_close_callback()
+        super().closeEvent(event)
 
 ############################################################################################
 # Hérite de QMainWindow (fenêtre principale) et de Ui_MainWindow (interface graphique).
@@ -273,6 +307,16 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         
         self.setupUi(self)
         self.Config=Config()
+
+
+        # ── Fenêtre externe (créée une fois, réutilisée) ──────────────────
+        # On passe _on_viewer_window_closed comme callback pour être notifié
+        # quand l'utilisateur ferme la fenêtre via la croix OS.
+        self._viewer_window = DatViewerWindow(
+            on_close_callback=self._on_viewer_window_closed,
+            parent=None,   # None = fenêtre de premier niveau indépendante
+        )
+        self.data_viewer.clicked.connect(self._toggle_viewer_window)
         #self.molecule = None
         self.H=256
         self.W=256
@@ -481,7 +525,34 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.curve_exafs=[]
         self.XAS={}
         self.feff=FEFF()
-    ### ----------------------------------------------------------------------------------###
+    ### ----------------------------------------------------------------------------------##
+    def _toggle_viewer_window(self):
+        """Ouvre la fenêtre si elle est cachée, la ferme sinon."""
+        if self._viewer_window.isVisible():
+            self._viewer_window.hide()
+            self._set_state_closed()
+        else:
+            self._viewer_window.show()
+            self._viewer_window.raise_()      # passer au premier plan
+            self._viewer_window.activateWindow()
+            self._set_state_open()
+    def _on_viewer_window_closed(self):
+        """Appelé par DatViewerWindow.closeEvent (croix OS)."""
+        self._set_state_closed()
+
+    def _set_state_open(self):
+        self.data_viewer.setText("✕ Hide data viewer")
+        #self._state_label.setText("● Visualiseur : ouvert")
+        #self._state_label.setStyleSheet("color:#a6e3a1; font-size:9pt;")
+        #self._status.showMessage("Fenêtre visualiseur ouverte.")
+
+    def _set_state_closed(self):
+        self.data_viewer.setText("📊 Show data viewer")
+        #self._state_label.setText("● Visualiseur : fermé")
+        #self._state_label.setStyleSheet("color:#f38ba8; font-size:9pt;")
+        #self._status.showMessage("Fenêtre visualiseur fermée.")
+
+    ### ----------------------- END of Data Viewer methods ------------------------------
     def reset_all_FEFF_calculations(self):
         """Réinitialise tous les modules de calcul (FEFF, XAS, Optimisation, etc.)"""
         
@@ -1181,7 +1252,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         #print(atoms)
         for atm in self.molecule.atoms:
             #print(atm.elt,bulou.Atom.Z_from_elt[atm.elt],atm.q)
-            atoms += Atom(Molecule.Atom.Z_from_elt[atm.elt], (atm.q[0],atm.q[1],atm.q[2]))
+            atoms += Atom(HBPy.Molecule.Atom.Z_from_elt[atm.elt], (atm.q[0],atm.q[1],atm.q[2]))
         #atoms.rotate(90, 'z', rotate_cell=True)
         #atoms.rotate(self.WD_dial_x.value(), 'x', rotate_cell=False)
         #atoms.rotate(self.WD_dial_x.value(), 'x', rotate_cell=True)
