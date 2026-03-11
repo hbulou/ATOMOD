@@ -70,6 +70,10 @@ from tensorflow.keras.models import Model,load_model
 from ATOMOD.ATOMOD import CustomDataGenerator,UNet,ImageSamplingCallback
 from PyFEFF.FEFF import (FEFF)
 
+from scipy.stats import gaussian_kde
+from scipy.signal import find_peaks
+
+
 import logging
 # Configuration du logging
 logging.basicConfig(
@@ -111,6 +115,38 @@ class Config:
 # ============================================================================================
 # TOOLS
 # ============================================================================================
+def get_z_plane(z_coords):
+    # 1. Charger vos données (remplacez par la lecture de votre fichier XYZ)
+    # Supposons que 'z_coords' est un array numpy contenant toutes vos cotes z
+    #z_coords = np.loadtxt("data/xyz/NP_2050.xyz", skiprows=2, usecols=3) # Exemple pour format XYZ standard
+    #print(z_coords)
+    # 2. Calculer le KDE (densité de probabilité)
+    density = gaussian_kde(z_coords, bw_method=0.05) # Ajuster bw_method selon le bruit
+    z_range = np.linspace(min(z_coords), max(z_coords), 1000)
+    z_density = density(z_range)
+    
+    # 3. Trouver les pics
+    peaks, _ = find_peaks(z_density, height=np.max(z_density)*0.1)
+    z_planes = z_range[peaks]
+    
+    # 4. Visualisation
+    #plt.plot(z_range, z_density)
+    #plt.plot(z_planes, z_density[peaks], "x")
+    #plt.title(f"Cotes des plans détectées : {z_planes}")
+    #plt.xlabel("z")
+    #plt.ylabel("Densité")
+    #plt.show()
+    
+    print("Cotes des plans :", z_planes)
+    d_mean=0.0
+    for i in range(len(z_planes)-1):
+        d=z_planes[i+1]-z_planes[i]
+        #print(d)
+        d_mean+=d
+    d_mean=d_mean/(len(z_planes)-1)
+    print("<d>=",d_mean)
+    return z_planes,d_mean
+
 def mk_mean(series_list):
     """
     Méthode  : Interpolation sur une grille commune.
@@ -273,12 +309,12 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
 
         self.setWindowTitle("Py_ATOMOD_v0.5")
         self.WD_lineedit_radius.setText(str(Config.RADIUS))
-        self.WD_lineedit_radius.textChanged.connect(self.new_NP)
+        #self.WD_lineedit_radius.textChanged.connect(self.new_NP)
         self.WD_lineedit_radius.returnPressed.connect(self.new_NP)
 
 
         self.WD_lineedit_seed.setText("0")
-        self.WD_lineedit_seed.textChanged.connect(self.new_NP)
+        #self.WD_lineedit_seed.textChanged.connect(self.new_NP)
         self.WD_lineedit_seed.returnPressed.connect(self.new_NP)
         self.WD_button_build.clicked.connect(self.new_NP)
         self.WD_button_save.clicked.connect(self.save_NP)
@@ -322,7 +358,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         self.TEM_img.sampling.dz=0.0
         self.WD_button_TEM_img.clicked.connect(self.abtem)
         self.WD_button_TEM_save.clicked.connect(self.saveTEM)
-        self.WD_lineedit_cellsize.textChanged.connect(self.abtem)
+        #self.WD_lineedit_cellsize.textChanged.connect(self.abtem)
         # xyz -> slice
         self.PB_xyz2slice.clicked.connect(self.xyz2slice)
 
@@ -968,7 +1004,11 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         """
         print("xyz2slice")
         print(self.composition)
-        self.molecule.get_structure()
+        tmp_molecule=self.molecule.duplicate()
+        tmp_molecule.origin_at(origin=np.array([-10.0,-10.0,-10.0]))
+        tmp_molecule.get_structure()
+        
+        print(self.molecule.MC)
         nx=self.potential.shape[1]
         ny=self.potential.shape[2]
         nz=self.potential.shape[0]
@@ -976,21 +1016,35 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         dy=self.TEM_img.sampling.dy
         dz=self.TEM_img.sampling.dz
 
+
+
+        z_coords=[]
+        for atm in tmp_molecule.atoms:
+            z_coords.append(atm.q[2])
+        zp,dzmean=get_z_plane(z_coords)    
+        print(zp,dzmean)
+        dz=dzmean
+
         x = np.linspace(0.0, self.potential.extent[0], nx)
         y = np.linspace(0.0, self.potential.extent[1], ny)
-        z = np.linspace(0.0, self.molecule.qmax[2], nz)
+        nz=len(zp)
+        z = np.linspace(zp[0],zp[-1],nz)
+
         
+        
+        print(f"qmin={tmp_molecule.qmin}")
+        print(f"qmax={tmp_molecule.qmax}")
         volumes = {}  # dict: espèce -> volume 3D
         for sp in self.composition:
             volumes[sp] = np.zeros((nx, ny, nz), dtype=float)
         
         sigma = 0.6  # en Å, largeur de la gaussienne ~ rayon atomique ou un peu moins
-        for atom in self.molecule.atoms:
+        for atom in tmp_molecule.atoms:
              sp = atom.elt
              vol = volumes[sp]
              # Position de l’atome
              ax, ay, az = atom.q[0], atom.q[1], atom.q[2]
-        #     # Indices du voisinage à affecter (±3 sigma)
+             #     # Indices du voisinage à affecter (±3 sigma)
              ix_center = int((ax) / dx)
              iy_center = int((ay) / dy)
              iz_center = int((az) / dz)
@@ -1027,7 +1081,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         zmin=0.0
         xmax=self.potential.extent[1]
         ymax=self.potential.extent[1]
-        zmax=self.molecule.qmin[2]
+        zmax=tmp_molecule.qmin[2]
 
         for sp in self.composition:
             vol=volumes[sp]
@@ -1070,7 +1124,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
                 #fig.colorbar(im, ax=ax, label="densité")
 
                 # sauvegarde {int(self.WD_lineedit_configidx.text()):04d}
-                filename = os.path.join(output_dir, f"img_{int(self.WD_lineedit_configidx.text()):04d}_{sp}_{k:04d}.png")
+                filename = os.path.join(output_dir, f"img_{int(self.WD_lineedit_configidx.text()):04d}_{sp}_{k:04d}_{z_value:5.2f}.png")
                 plt.savefig(filename,
                             dpi=150,
                             bbox_inches='tight',
@@ -1127,7 +1181,7 @@ class MainApp(QMainWindow,Ui_MainWindow):  #  Crée une fenêtre principale vide
         #print(atoms)
         for atm in self.molecule.atoms:
             #print(atm.elt,bulou.Atom.Z_from_elt[atm.elt],atm.q)
-            atoms += Atom(HBPy.Atom.Z_from_elt[atm.elt], (atm.q[0],atm.q[1],atm.q[2]))
+            atoms += Atom(Molecule.Atom.Z_from_elt[atm.elt], (atm.q[0],atm.q[1],atm.q[2]))
         #atoms.rotate(90, 'z', rotate_cell=True)
         #atoms.rotate(self.WD_dial_x.value(), 'x', rotate_cell=False)
         #atoms.rotate(self.WD_dial_x.value(), 'x', rotate_cell=True)
