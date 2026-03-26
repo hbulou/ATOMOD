@@ -1,0 +1,31 @@
+{
+  "collectionName": "characterizations",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "bsonType": "int"
+        },
+        "operator": {
+          "bsonType": "string",
+          "description": "Name of the operator who performed the caracterisation"
+        },
+        "method": {
+          "bsonType": "string",
+          "description": "Name of the method used to characterized the sample"
+        },
+        "created_at": {
+          "bsonType": "date"
+        },
+        "sample": {
+          "bsonType": "string"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

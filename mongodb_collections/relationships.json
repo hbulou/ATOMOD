@@ -1,0 +1,46 @@
+{
+  "relationships": [
+    {
+      "from_table": "characterizations",
+      "from_field": "sample",
+      "type": ">",
+      "to_table": "samples",
+      "to_field": "name"
+    },
+    {
+      "from_table": "synthesis",
+      "from_field": "manufacturer",
+      "type": ">",
+      "to_table": "persons",
+      "to_field": "name"
+    },
+    {
+      "from_table": "characterizations",
+      "from_field": "operator",
+      "type": ">",
+      "to_table": "persons",
+      "to_field": "name"
+    },
+    {
+      "from_table": "synthesis",
+      "from_field": "method",
+      "type": ">",
+      "to_table": "synthesis_methods",
+      "to_field": "name"
+    },
+    {
+      "from_table": "characterizations",
+      "from_field": "method",
+      "type": ">",
+      "to_table": "characterization_methods",
+      "to_field": "name"
+    },
+    {
+      "from_table": "teams",
+      "from_field": "name",
+      "type": "-",
+      "to_table": "persons",
+      "to_field": "team_id"
+    }
+  ]
+}

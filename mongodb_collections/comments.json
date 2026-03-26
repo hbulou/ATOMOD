@@ -1,0 +1,33 @@
+{
+  "collectionName": "comments",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "id",
+        "post_id",
+        "user_id",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "bsonType": "int"
+        },
+        "post_id": {
+          "bsonType": "int"
+        },
+        "user_id": {
+          "bsonType": "int"
+        },
+        "content": {
+          "bsonType": "string"
+        },
+        "created_at": {
+          "bsonType": "date",
+          "default": "`now()`"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

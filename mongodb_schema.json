@@ -1,0 +1,213 @@
+{
+  "version": "1.0",
+  "database": "example",
+  "collections": {
+    "samples": {
+      "collectionName": "samples",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "synthesis_id": {
+              "bsonType": "int"
+            },
+            "name": {
+              "bsonType": "string"
+            }
+          }
+        }
+      },
+      "indexes": []
+    },
+    "characterizations": {
+      "collectionName": "characterizations",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "bsonType": "int"
+            },
+            "operator": {
+              "bsonType": "string",
+              "description": "Name of the operator who performed the caracterisation"
+            },
+            "method": {
+              "bsonType": "string",
+              "description": "Name of the method used to characterized the sample"
+            },
+            "created_at": {
+              "bsonType": "date"
+            },
+            "sample": {
+              "bsonType": "string"
+            }
+          }
+        }
+      },
+      "indexes": []
+    },
+    "synthesis": {
+      "collectionName": "synthesis",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "bsonType": "int"
+            },
+            "method": {
+              "bsonType": "string",
+              "description": "Name of the method used to manufacture the sample"
+            },
+            "manufacturer": {
+              "bsonType": "string",
+              "description": "Name of the operator who manufactured the sample"
+            },
+            "created_at": {
+              "bsonType": "date"
+            }
+          }
+        }
+      },
+      "indexes": []
+    },
+    "persons": {
+      "collectionName": "persons",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "bsonType": "string"
+            },
+            "first_name": {
+              "bsonType": "string"
+            },
+            "team_id": {
+              "bsonType": "string"
+            },
+            "email": {
+              "bsonType": "string"
+            },
+            "phone": {
+              "bsonType": "string"
+            }
+          }
+        }
+      },
+      "indexes": []
+    },
+    "teams": {
+      "collectionName": "teams",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "bsonType": "string"
+            },
+            "adress": {
+              "bsonType": "string",
+              "description": "Adress of the labs"
+            }
+          }
+        }
+      },
+      "indexes": []
+    },
+    "synthesis_methods": {
+      "collectionName": "synthesis_methods",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "bsonType": "string"
+            }
+          }
+        }
+      },
+      "indexes": []
+    },
+    "characterization_methods": {
+      "collectionName": "characterization_methods",
+      "validator": {
+        "$jsonSchema": {
+          "bsonType": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "bsonType": "string"
+            }
+          }
+        }
+      },
+      "indexes": []
+    }
+  },
+  "relationships": [
+    {
+      "from_table": "characterizations",
+      "from_field": "sample",
+      "type": ">",
+      "to_table": "samples",
+      "to_field": "name"
+    },
+    {
+      "from_table": "synthesis",
+      "from_field": "manufacturer",
+      "type": ">",
+      "to_table": "persons",
+      "to_field": "name"
+    },
+    {
+      "from_table": "characterizations",
+      "from_field": "operator",
+      "type": ">",
+      "to_table": "persons",
+      "to_field": "name"
+    },
+    {
+      "from_table": "synthesis",
+      "from_field": "method",
+      "type": ">",
+      "to_table": "synthesis_methods",
+      "to_field": "name"
+    },
+    {
+      "from_table": "characterizations",
+      "from_field": "method",
+      "type": ">",
+      "to_table": "characterization_methods",
+      "to_field": "name"
+    },
+    {
+      "from_table": "teams",
+      "from_field": "name",
+      "type": "-",
+      "to_table": "persons",
+      "to_field": "team_id"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "collectionName": "samples",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "synthesis_id": {
+          "bsonType": "int"
+        },
+        "name": {
+          "bsonType": "string"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

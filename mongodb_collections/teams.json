@@ -1,0 +1,21 @@
+{
+  "collectionName": "teams",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "bsonType": "string"
+        },
+        "adress": {
+          "bsonType": "string",
+          "description": "Adress of the labs"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

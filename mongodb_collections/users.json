@@ -1,0 +1,33 @@
+{
+  "collectionName": "users",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "id",
+        "username",
+        "email"
+      ],
+      "properties": {
+        "id": {
+          "bsonType": "int"
+        },
+        "username": {
+          "bsonType": "string"
+        },
+        "email": {
+          "bsonType": "string"
+        },
+        "created_at": {
+          "bsonType": "date",
+          "default": "`now()`"
+        },
+        "is_active": {
+          "bsonType": "bool",
+          "default": "true"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

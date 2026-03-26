@@ -1,0 +1,17 @@
+{
+  "collectionName": "synthesis_methods",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "bsonType": "string"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

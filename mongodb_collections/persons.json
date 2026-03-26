@@ -1,0 +1,29 @@
+{
+  "collectionName": "persons",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "bsonType": "string"
+        },
+        "first_name": {
+          "bsonType": "string"
+        },
+        "team_id": {
+          "bsonType": "string"
+        },
+        "email": {
+          "bsonType": "string"
+        },
+        "phone": {
+          "bsonType": "string"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

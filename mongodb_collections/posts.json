@@ -1,0 +1,35 @@
+{
+  "collectionName": "posts",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "id",
+        "user_id",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "bsonType": "int"
+        },
+        "user_id": {
+          "bsonType": "int"
+        },
+        "title": {
+          "bsonType": "string"
+        },
+        "content": {
+          "bsonType": "string"
+        },
+        "published_at": {
+          "bsonType": "date"
+        },
+        "view_count": {
+          "bsonType": "int",
+          "default": "0"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

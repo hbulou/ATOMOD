@@ -1,0 +1,17 @@
+{
+  "collectionName": "characterization_methods",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "bsonType": "string"
+        }
+      }
+    }
+  },
+  "indexes": []
+}

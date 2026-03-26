@@ -1,0 +1,132 @@
+
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+
+Table samples {
+  synthesis_id integer	
+  name varchar [primary key]
+}
+
+
+Table characterizations {
+  id integer [primary key]
+  operator text [note: "Name of the operator who performed the caracterisation"]
+  method text [note: "Name of the method used to characterized the sample"]
+  created_at timestamp
+  sample varchar 
+}
+
+
+
+
+
+Table synthesis {
+  id integer [primary key]
+  method text [note: "Name of the method used to manufacture the sample"]
+  manufacturer text [note: "Name of the operator who manufactured the sample"]
+  created_at timestamp
+}
+
+
+Table persons {
+  name text [primary key]
+  first_name text
+  team_id text
+  email email
+  phone text
+}
+
+
+Table teams {
+  name text [primary key]
+  adress text [note: 'Adress of the labs']
+}
+
+Table synthesis_methods {
+  name text [primary key]
+}
+
+Table characterization_methods {
+  name text [primary key]
+}
+
+
+
+
+// un même échantillon peut être manufacturé par plusieurs méthodes différentes (exp, in silico)
+//    a réfléchir. Une autre façon de faire serait de définir un champ "in silico version"
+Ref :  samples.synthesis_id > synthesis.id
+
+// many-to-one. Un même sample peut être analysé par plusieurs méthodes
+Ref: characterizations.sample > samples.name
+
+// un seul manufacturer par sample
+Ref: synthesis.manufacturer > persons.name 
+Ref: characterizations.operator > persons.name
+Ref: synthesis.method > synthesis_methods.name
+Ref: characterizations.method > characterization_methods.name
+
+Ref: teams.name - persons.team_id
+
+
+
+Records teams (name,adress) {
+	'IPCMS','Strasbourg'
+	'SOLEIL','Saclay'
+	'LCMCP','Paris Sorbonne Université'
+	'ITODYS','Université Paris Cité'
+	'IFP Energies Nouvelles','Solaize'
+}
+
+Records persons(name,first_name,team_id) {
+	'Bulou','Hervé','IPCMS'
+	'Goyhenex','Christine','IPCMS'
+	'Ersen','Ovidiu','IPCMS'
+	'De Marco','Maria','IPCMS'
+	'Takoutsin','Mikael','IPCMS'
+	'Mirgot','Nathan','IPCMS'
+	'Briois','Valérie','SOLEIL'
+	'Fonda','Emiliano','SOLEIL'
+	'Campolucci','Marta','LCMCP'
+	'Faustini','Marco','LCMCP'
+	'Ishiki','Nicolas','ITODYS'
+	'Kanoufi','Frédéric','ITODYS'
+	'Peron','Jennifer','ITODYS'
+	'Charlety','Jean','IFP Energies Nouvelles'
+}
+
+Records synthesis_methods(name){
+  "spray drying"
+  "in silico"
+}
+
+Records characterization_methods(name){
+  'TEM'
+  'XAS'
+  'Cyclic Voltammetry'  
+}
+
+Records synthesis(id,method,manufacturer,created_at){
+	0,'in silico','Bulou','2025-09-09'
+	1,'in silico','Bulou','2025-09-10'
+	2,'spray drying','Campolucci','2025-06-10'	
+	3,'spray drying','Campolucci','2025-07-15'	
+}
+
+Records samples(name,synthesis_id){
+  'CuRuPdIrPt_0',2
+  'CuRuPdIrPt_1',3
+  'RhIr_0',1
+  'NiRuIr_0',2
+}
+
+
+Records characterizations(id,method,operator,created_at,sample){
+	0,'TEM','Mirgot','2026-02-19','CuRuPdIrPt_0'
+	1,'XAS','Briois','2025-11-12','CuRuPdIrPt_0'
+	2,'Cyclic Voltammetry','Ishiki','2025-10-04','CuRuPdIrPt_0'
+	3,'TEM','Mirgot','2026-01-29','CuRuPdIrPt_1'
+	4,'XAS','Briois','2025-11-09','CuRuPdIrPt_1'
+}
+    

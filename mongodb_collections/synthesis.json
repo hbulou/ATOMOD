@@ -1,0 +1,28 @@
+{
+  "collectionName": "synthesis",
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "bsonType": "int"
+        },
+        "method": {
+          "bsonType": "string",
+          "description": "Name of the method used to manufacture the sample"
+        },
+        "manufacturer": {
+          "bsonType": "string",
+          "description": "Name of the operator who manufactured the sample"
+        },
+        "created_at": {
+          "bsonType": "date"
+        }
+      }
+    }
+  },
+  "indexes": []
+}
