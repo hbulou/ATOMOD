@@ -1,5 +1,5 @@
-from Molecule.Atom import Z_from_elt  # Z_from_elt est une méthode de la classe Atom définie dans le fichier Atom.py se trouvant dans le répertoire Molecule
-import Molecule.Crystal as Crystal
+from HBPy.Molecule.Atom import Z_from_elt  # Z_from_elt est une méthode de la classe Atom définie dans le fichier Atom.py se trouvant dans le répertoire Molecule
+import HBPy.Molecule.Crystal as Crystal
 import numpy as np
 #from pathlib import Path
 import subprocess

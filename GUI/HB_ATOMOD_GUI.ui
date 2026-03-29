@@ -2779,7 +2779,7 @@ p, li { white-space: pre-wrap; }
   <customwidget>
    <class>MoleculeGLWidget</class>
    <extends>QWidget</extends>
-   <header>moleculeglwidget</header>
+   <header>HBPy.Molecule.MoleculeGLWidget.moleculeglwidget</header>
    <container>1</container>
   </customwidget>
   <customwidget>
