@@ -7,6 +7,7 @@ import shutil
 
 
 class FEFF:
+    configall={'RPATH': 5.0}
     def __init__(self):
         self.config={
             'TITLE':'FEFF INPUT FILE',
@@ -22,7 +23,8 @@ class FEFF:
                           molecule:Crystal,
                           absorber_idx:int,
                           T:float=300.0, 
-                          filename='feff.inp'):
+                          filename='feff.inp',
+                          rpath=configall['RPATH']):
 
 
         
@@ -39,7 +41,7 @@ class FEFF:
             f.write(f"DEBYE {T} {self.config['DEBYE_TEMP']} 0\n")
             f.write(f"SCF {self.config['SCF_RADIUS']}\n")
             f.write(f'EXAFS {self.config["EXAFS"]}\n')
-            f.write(f"RPATH {self.config['RPATH']}\n")
+            f.write(f"RPATH {rpath}\n")
             f.write(f"EDGE {self.config['EDGE']}\n")
             f.write(f'CONTROL\t1 1 1 1 1 1\n')            
             
@@ -86,7 +88,7 @@ class FEFF:
 
         del tmp_molecule
 
-    def run(self,filename,config,list_pgm=['rdinp','pot']):
+    def run(self,filename,config=configall,list_pgm=['rdinp','pot']):
         shutil.copy2(filename,"feff.inp")
         for pgm in list_pgm:
             print(100*"#") ; print(f"### {pgm}") ; print(100*"#")
