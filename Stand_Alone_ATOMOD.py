@@ -45,7 +45,8 @@ def main():
     # _______________________________________
     config={
         'train':{
-            'TEM_img_dir':"data/train/images"  # répertoire de stockage des images TEM
+            'TEM_img_dir':"data/train/images",  # répertoire de stockage des images TEM
+            'prob_maps_img_dir':"data/train/prob_maps"  # répertoire de stockage des images TEM
         },
         'abtem':{
             'dx':0.04,
@@ -58,13 +59,13 @@ def main():
             'cell scale':1.1
             }
     }
-    NP.abTEM(config)
+    #NP.abTEM(config)
     # _______________________________________
     #
     # Etape 3 : construire les cartes de probabilité de présence atomique
     # _______________________________________
 
-    NP.xyz2slice()
+    NP.xyz2slice(config)
     
 if __name__ == "__main__":
     main()
