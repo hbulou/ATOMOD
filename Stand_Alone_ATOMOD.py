@@ -39,9 +39,7 @@ def main():
 
     # _______________________________________
     #
-    # Etape 2 : construire l'image TEM
-    #   abTEM : https://github.com/abTEM/abTEM
-    #   https://abtem.readthedocs.io/en/latest/intro.html#
+    # Etape 2 : construire les cartes de probabilité de présence atomique
     # _______________________________________
     config={
         'train':{
@@ -59,13 +57,16 @@ def main():
             'cell scale':1.1
             }
     }
-    #NP.abTEM(config)
-    # _______________________________________
-    #
-    # Etape 3 : construire les cartes de probabilité de présence atomique
-    # _______________________________________
+
 
     NP.xyz2slice(config)
+
+    # _______________________________________
+    # Etape 3 : construire l'image TEM
+    #   abTEM : https://github.com/abTEM/abTEM
+    #   https://abtem.readthedocs.io/en/latest/intro.html#
+    #NP.abTEM(config)
+    # _______________________________________
     
 if __name__ == "__main__":
     main()
