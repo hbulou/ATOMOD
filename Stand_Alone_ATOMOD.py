@@ -20,27 +20,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def main():
-    # _______________________________________
-    #
-    # Etape 1 : construire la nanoparticules
-    # _______________________________________
-    #   Etape 1.1 : la structure
-    NP=Crystal()
-    NP.build(radius=6.0,materials='NP')
-    NP.origin_at_mass_center()
-    logger.info(f"min={NP.qmin} max={NP.qmax}")
-    logger.info(f"Mass center={NP.MC}")
-    logger.info(f"Number of atoms={len(NP.atoms)}")
-    #   Etape 1.2 : la distribution chimique
-    composition=['Pt','Ni','Ir']
-    NP.set_composition(composition)
-    NP.save(prefix="NP",fmt='xyz')
-    #   Etape 1.3 : (optionnelle) l'optimisation structurale et/ou chimique
-
-    # _______________________________________
-    #
-    # Etape 2 : construire les cartes de probabilité de présence atomique
-    # _______________________________________
     config={
         'train':{
             'TEM_img_dir':"data/train/images",  # répertoire de stockage des images TEM
@@ -55,18 +34,70 @@ def main():
             'semiangle cutoff':20,
             'defocus':200,
             'cell scale':1.1
-            }
+            },
+        'atomic presence probability map':{
+            'ninter':{ # nombre d'intervalles entre deux positions atomiques
+                'x':20,
+                'y':20,
+                'z':2
+            },
+            'sigma': .6  # en Å, largeur de la gaussienne ~ rayon atomique ou un peu moins
+        },
+        'image':{
+            'xmin':0.0,
+            'xmax':0.0,
+            'ymin':0.0,
+            'ymax':0.0
+            },
+        'nvaccum':2.0,
+        'structure':{
+            'optimization':False,
+            'composition':['Pt','Co'],
+            'radius':5.0,
+            'a':0.5*(3.55+3.92),
+        }
+        
     }
-
-
-    NP.xyz2slice(config)
-
     # _______________________________________
+    #
+    # Etape 1 : construire la nanoparticules
+    # _______________________________________
+    #   Etape 1.1 : la structure
+    NP=Crystal()
+    NP.build(a=config['structure']['a'],
+             radius=config['structure']['radius'],
+             materials='NP')
+    NP.origin_at_mass_center()
+    logger.info(f"min={NP.qmin} max={NP.qmax}")
+    logger.info(f"Mass center={NP.MC}")
+    logger.info(f"Number of atoms={len(NP.atoms)}")
+    #   Etape 1.2 : la distribution chimique
+
+    NP.set_composition(config['structure']['composition'])
+    NP.save(prefix="NP",fmt='xyz')
+    #   Etape 1.3 : (optionnelle) l'optimisation structurale et/ou chimique
+    if config['structure']['optimization']:
+        NP.optimize_ase()
+
+    # ___________________________________________________________________
+    #
+    # Etape 2 : construire les cartes de probabilité de présence atomique
+    # ___________________________________________________________________
+    NP.xyz2slice(config)
+    logger.info(f"{NP.qmin[0]} {NP.qmax[0]} {NP.qmin[1]} {NP.qmax[1]}")
+    logger.info(f"{config['image']['xmin']} {config['image']['xmax']} {config['image']['ymin']} {config['image']['ymax']}")
+    
+    # ____________________________________________________
     # Etape 3 : construire l'image TEM
     #   abTEM : https://github.com/abTEM/abTEM
     #   https://abtem.readthedocs.io/en/latest/intro.html#
-    #NP.abTEM(config)
-    # _______________________________________
+    # ____________________________________________________
+    NP.abTEM(config)
+
+    # ____________________________________________________
+    # Etape 4 : construire les spectres EXAFS
+    # ____________________________________________________
+
     
 if __name__ == "__main__":
     main()
