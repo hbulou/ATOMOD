@@ -1,11 +1,13 @@
 import sys
-#import os
+import os
 import random
 
 
 
 import HBPy
 from HBPy.Molecule.Crystal import Crystal,Atom
+
+from PyFEFF.FEFF import (FEFF)
 
 import matplotlib.pyplot as plt
 sys.path.append('./lib/')
@@ -21,9 +23,10 @@ logger = logging.getLogger(__name__)
 
 def main():
     config={
+        'root_dir':'simul',
         'train':{
-            'TEM_img_dir':"data/train/images",  # répertoire de stockage des images TEM
-            'prob_maps_img_dir':"data/train/prob_maps"  # répertoire de stockage des images TEM
+            'TEM_img_dir':"train/images",  # répertoire de stockage des images TEM
+            'prob_maps_img_dir':"train/prob_maps"  # répertoire de stockage des images TEM
         },
         'abtem':{
             'dx':0.04,
@@ -55,6 +58,32 @@ def main():
             'composition':['Pt','Co'],
             'radius':5.0,
             'a':0.5*(3.55+3.92),
+        },
+        'feff':{
+            'TITLE':'FEFF INPUT FILE',
+            'DEBYE_TEMP': 190.0,
+            'SCF_RADIUS': 5.0,
+            'RPATH': 5.0,     # typique 2.2xdistance plus proches voisins. changer pour étudier la cvg des spectres
+            'EXAFS' : 20.0,   # xkmax - default 20 ang.^-1
+            'EDGE':  "K",
+            'RMAX':8.0,
+            'feff_dir':  '/home/bulou/ownCloud/Notebooks/M2P2_HEA/Home/Modelisation/ATOMOD/JFEFF/feff90/unix/',
+            'input_save_dir':'./',
+            'filename':'feff.inp',
+            'list_pgm':['rdinp','atomic','dmdw','pot',
+                        'opconsat', 
+                        'screen',
+                        'xsph',
+                        'fms',
+                        'mkgtr',
+                        'path', 
+                        'genfmt',
+                        'ff2x',
+                        'sfconv',
+                        'compton',
+                        'eels',
+                        'ldos'
+                        ]
         }
         
     }
@@ -97,6 +126,16 @@ def main():
     # ____________________________________________________
     # Etape 4 : construire les spectres EXAFS
     # ____________________________________________________
+    NP.feff=FEFF()
+    base_dir=os.getcwd()
+
+    for atm in NP.atoms:
+        config['feff']['input_save_dir']=f"{config['root_dir']}/feff_input_files/{atm.elt}_{atm.idx}"
+        os.makedirs(config['feff']['input_save_dir'], exist_ok=True)
+        os.chdir(f"{base_dir}/{config['feff']['input_save_dir']}")
+        NP.FEFF_create_input_file(config['feff'],absorber_idx=atm.idx)
+        NP.FEFF_run(config['feff'])
+        os.chdir(base_dir)
 
     
 if __name__ == "__main__":
