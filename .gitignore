@@ -21,7 +21,7 @@ unet_atomod_trained_last.keras
 .ipynb_checkpoints/
 .scfconvergence-feff
 bulou
-doc/
+#doc/
 JFEFF/
 Archive/
 *.dat
@@ -35,3 +35,8 @@ GUI/moleculeglwidget-old.py
 HEA_NiRuIr/
 *.traj
 Archives/
+*.gz
+*.cpt
+*.aux
+*.toc
+*.out

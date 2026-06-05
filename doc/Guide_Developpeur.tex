@@ -1,0 +1,216 @@
+\documentclass[12pt,a4paper,french]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+%\usepackage[francais]{babel}
+\usepackage{polyglossia}
+\setmainlanguage{french}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{cprotect}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xhfill}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{textcomp}
+\usepackage{float}
+\usepackage{verbatim}
+\usepackage{titlesec}
+\usepackage{cprotect}
+\usepackage{float}
+\usepackage{bm}
+% Géométrie de la page
+\geometry{
+    left=1.0cm,
+    right=1.0cm,
+    top=.5cm,
+    bottom=1.5cm,
+    headheight=1.0cm,
+    headsep=1cm,
+    footskip=0.75cm
+}
+
+% Couleurs
+\definecolor{darkblue}{HTML}{1f4788}
+\definecolor{lightblue}{HTML}{E8F0F8}
+\definecolor{darkgreen}{HTML}{2d7d3a}
+\definecolor{lightgreen}{HTML}{E8F5E9}
+\definecolor{darkred}{HTML}{c1121f}
+\definecolor{lightyellow}{HTML}{FFF8DC}
+\definecolor{codegray}{gray}{0.95}
+\definecolor{lightcyan}{HTML}{E0F7FA}
+\definecolor{darkcyan}{HTML}{00838F}
+% En-tête et pied de page
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{darkblue}{\textbf{PyCyto\_Emergence}}}
+\fancyhead[R]{\textcolor{darkblue}{Guide d'utilisation}}
+\fancyfoot[C]{\thepage}
+\fancyfoot[R]{\small v0.6.0}
+\renewcommand{\headrulewidth}{1pt}
+\renewcommand{\footrulewidth}{0.5pt}
+
+% Styles des sections
+\titleformat{\chapter}[display]
+{\normalfont\huge\bfseries\color{darkblue}}
+{\chaptertitlename\ \thechapter}
+{20pt}
+{\huge}
+
+\titleformat{\section}
+{\normalfont\Large\bfseries\color{darkblue}}
+{\thesection}
+{1em}
+{}
+
+\titleformat{\subsection}
+{\normalfont\large\bfseries\color{darkgreen}}
+{\thesubsection}
+{1em}
+{}
+
+% Environnement pour les boîtes
+\usepackage[most]{tcolorbox}
+
+\newenvironment{infobox}
+{\begin{tcolorbox}[colback=lightblue, colframe=darkblue, title=\textbf{ℹ Information}, boxrule=1.5pt]}
+{\end{tcolorbox}}
+
+\newenvironment{successbox}
+{\begin{tcolorbox}[colback=lightgreen, colframe=darkgreen, title=\textbf{✓ Succès}, boxrule=1.5pt]}
+{\end{tcolorbox}}
+
+\newenvironment{warningbox}
+{\begin{tcolorbox}[colback=lightyellow, colframe=darkred, title=\textbf{⚠ Attention}, boxrule=1.5pt]}
+{\end{tcolorbox}}
+
+
+\newenvironment{todobox}
+{\begin{tcolorbox}[colback=lightcyan, colframe=darkcyan, 
+		title=\textbf{[>] To Do}, boxrule=1.5pt]}
+{\end{tcolorbox}}
+% Code listings
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    backgroundcolor=\color{codegray},
+    frame=single,
+    frameround=tttt,
+    captionpos=b,
+    tabsize=4,
+    language=Python
+}
+
+% Titre personnalisé
+\title{\Huge\textbf{\textcolor{darkblue}{ATOMOD}}\\
+       \Large\textcolor{darkgreen}{Guide d'utilisation complet}\\
+       \normalsize Application d'..........}
+\author{H. Bulou}
+\date{Version 0.6.0 \\ 2026-03-13}
+
+% ============================================================================
+% DOCUMENT
+% ============================================================================
+
+\begin{document}
+
+% Page de titre
+\maketitle
+% Page blanche
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+% Table des matières
+\newpage
+\tableofcontents
+\newpage
+La finalité de l'application \verb+ATOMOD+ est de reconstruire une structure 3D à partir d'informations projetées 2D (TEM) et intégrées statistiquement (EXAFS global) à une carte atomique 3D discrète d'un alliage à haute entropie (HEA), où le désordre chimique est maximal.
+
+Dans ce contexte, nous avons développé une approche basée sur une architecture de type UNet, modifiée avec du conditionnement "FiLM".
+C'est une approche basée sur une architecture de type UNet 2D conditionnée par un Encodeur EXAFS. Elle permet que l'information spectroscopique guide la reconstruction d'image tout au long du processus. L'image TEM donne les positions ($x$, $y$), l'EXAFS donne les distances locales pour la dimension $z$ et la chimie.
+Le principe de fonctionnement est qu'à chaque étage de \verb+UNet+, on injecte l'information EXAFS, qui va influencer ou "moduler" la manière dont l'image est traitée pendant le processus de calcul. Le spectre peut forcer le UNet à activer certains canaux de sortie (certains plans atomiques $z$) qu'il aurait ignorés autrement.
+
+\section{L'encodeur EXAFS}
+
+Trois architectures sont possibles.
+
+Les réseaux de neurones convolutifs 1D (1D-CNN) sont parfaits pour l'EXAFS. Les convolutions sont capables de détecter les oscillations (fréquences), les pics de coordination et les motifs locaux, indépendamment de leur position exacte sur le vecteur $\bm{k}$.
+En physique, la fréquence des oscillations dans l'espace $k$ est directement liée à la distance interatomique $R$. Les filtres de convolution d'un CNN 1D agissent mathématiquement comme des détecteurs de motifs oscillants. Le réseau apprendra à associer certaines fréquences de convolution à des distances spécifiques, simulant ainsi une sorte de "Transformée de Fourier interne".
+
+Les alliages à haute entropie génèrent des spectres EXAFS très complexes avec un fort désordre structurel entraînant des pics de transformée de Fourier souvent amortis ou superposés.
+Un mini-ResNet $1\text{D}$ avec des connexions résiduelles permet d'aller chercher des caractéristiques très subtiles sans souffrir du problème de disparition du gradient.
+ 
+Un perceptron multicouche (MLP) classique traite le spectre comme un simple vecteur géant de caractéristiques indépendantes. L'inconvénient est qu'il perd la notion d'ordre et de continuité des points le long de l'axe $k$. En revanche si on l'entraîne non pas sur l'espace $k$ (le signal $\chi(k)$), mais directement sur le spectre dans l'espace $R$ (la Transformée de Fourier du spectre), le MLP est très efficace car les positions des pics (première couche de coordination, deuxième couche) sont fixes sur l'axe des $R$.
+ 
+
+En entrée, on injecte une matrice de spectres (contenant chacun $N_\mathrm{points}$) de taille $N_\mathrm{points}\times N_\mathrm{espèces}$. Le rôle de l'encodeur est de compresser ce signal hautement dimensionnel en un vecteur "latent" compact (ex: 128 ou 256 valeurs) qui représente l' "empreinte digitale" chimique et structurale locale de la particule.
+
+\section{Le UNet de reconstruction}
+
+C'est un UNet standard, mais ses blocs de convolution sont modifiés pour accepter le vecteur latent EXAFS. Nous utilisons la technique\verb+ FiLM+ ("Feature-wise Linear Modulation"). À chaque étage de l'encodeur et du décodeur du UNet, tu utilises le vecteur latent EXAFS pour générer des paramètres $\gamma$ et $\beta$ qui vont normaliser et décaler les cartes de caractéristiques ("feature maps") de l'image.
+
+% ============================================================================
+% Chapitre XXX
+% ============================================================================
+\cprotect\chapter{Utilisation du code \verb+FEFF+ dans le projet \verb+M2P2_HEA+}
+\section{Objectif scientifique}
+Dans le cadre du projet \verb+M2P2_HEA+, le code de calcul \textit{ab initio} \verb+FEFF+ est utilisé pour générer une base de données massive et standardisée de spectres d'absorption de rayons X (XAS/EXAFS). Cette base de données constitue le socle d'apprentissage du réseau de neurones \verb+ATOMOD+, dont l'objectif est la reconstruction structurale 3D et l'identification chimique des nanoparticules d'alliages à haute entropie (HEA).
+\section{Méthodologie de Simulation}
+Le flux de travail repose sur une approche de modélisation "bottom-up". Des modèles atomiques de nanoparticules multimétalliques sont générés avec des configurations de taille ($N$), de forme et de degré d'alliage variables (coordonnées $x, y, z$).
+Puis,  pour chaque atome $i$ (espèce chimique $\mathrm{X}$) composant la nanoparticule, \verb+FEFF+ calcule la fonction de modulation $\chi_i^{(\mathrm{X)}}(k)$ résultant de l'interférence du photo-électron éjecté de l'atome $i$avec son environnement local. Afin de reproduire le signal expérimental (qui est une mesure macroscopique), le script automatise le calcul de chaque atome de la nanoparticule en tant qu'absorbeur potentiel. Le spectre final est obtenu par une moyenne pondérée :
+\begin{equation}
+	\chi_\mathrm{global}^{(\mathrm{X})}(k)=\frac{1}{N_\mathrm{X}}\sum_{i=1}^{N_\mathrm{X}}\chi_i^{(\mathrm{X)}}(k)
+\end{equation}
+
+\cprotect\section{Structure du fichier de données générées par \verb+FEFF+}
+En sortie d'un calcul EXAFS (module final \verb+ff2x+), \verb+FEFF+ génère le fichier \verb+xmu.dat+.
+Ce fichier est structuré sous forme de tableau en colonnes textuelles, précédé d'un en-tête (lignes commençant par \verb+#+) qui récapitule les paramètres de la simulation (seuil, potentiels, etc.).
+
+\begin{tabular}{||p{1.3cm}|p{1.3cm}|p{2cm}|p{12cm}||}
+	\hline	\hline
+	Numéro de colonne&	Index Python (col)&	Nom mathématique FEFF	& Description et Unité\\
+	\hline	\hline
+	1&0& \verb+omega+ ($\omega$) & Énergie absolue du photon incident (en eV). C'est l'axe des X idéal pour tracer le spectre d'absorption complet (XANES).\\
+		\hline
+	2&1& \verb+e+ ($E-E_0$) &  Énergie relative par rapport au seuil (en eV). Vaut $0$ exactement au seuil d'absorption ($E_0$).\\
+		\hline
+	3&2& \verb+k+ ($k$) & Vecteur d'onde du photo-électron (en $\mathring{A}^{-1}$). C'est l'axe des X indispensable pour tracer le signal d'oscillations $\chi(k)$.\\
+		\hline
+	4&3& \verb+mu+ ($\mu$) & Coefficient d'absorption total calculé (avec les oscillations).\\
+		\hline
+	5&4& \verb+mu0+ ($\mu_0$) & Coefficient d'absorption atomique de fond (le spectre "lissé", sans les voisins). C'est l'équivalent de la ligne de base ("spline").\\
+		\hline
+	6&5& \verb+chi+ ($\chi$) & Le signal EXAFS pur (les oscillations isolées et normalisées). Mathématiquement, il correspond à : $\chi = \frac{\mu - \mu_0}{\mu_0}$.\\
+		\hline
+	\hline
+\end{tabular}
+% ============================================================================
+% APPENDICES
+% ============================================================================
+
+\appendix
+
+\chapter{Glossaire}
+\begin{description}
+	\item[Architecture] On parle d'architecture pour désigner la structure théorique du réseau. C'est un concept abstrait, indépendant du problème ou des données. Par exemple, "l'architecture UNet" fait référence à la forme caractéristique en "U" du UNet, avec sa branche descendante (encodeur), sa branche ascendante (décodeur) et ses connexions sautées (skip connections).
+	\begin{todobox} Insérer une figure du UNet\end{todobox}
+	\cprotect\item[\verb+BATCH_SIZE+] Le \verb+BATCH_SIZE+ (Taille du Lot) est l'un des hyperparamètres les plus fondamentaux et les plus importants dans l'entraînement des réseaux de neurones. Il correspond au nombre d'échantillons de données (ici, d'images et de leurs 10 masques cibles) que le modèle va traiter simultanément avant d'ajuster ses poids.
+	\cprotect\item[\verb+EPOCHS+] Une époque représente un cycle complet d'entraînement. Une époque est définie comme un passage complet de l'ensemble du jeu de données d'entraînement à travers le réseau de neurones.
+	\item[Modèle] On parle de modèle (ou de modèle entraîné) dès que l'architecture est concrétisée : elle a des dimensions spécifiques (ex: des images de $128 \times 128$ en entrée, 15 canaux en sortie) et, surtout, elle possède des poids numériques appris après l'entraînement. C'est l'objet mathématique final sauvegardé dans un fichier \verb+.h5+ ou \verb+.keras+ et que l'on utilise pour faire des prédictions à partir des images TEM et des spectres EXAFS.
+	\cprotect\item[\verb+FiLM+] Le spectre génère des coefficients qui multiplient et s'ajoutent aux cartes de caractéristiques de l'image ($y=\gamma\cdot x+\beta$).
+\end{description}
+% ============================================================================
+% INDEX
+% ============================================================================
+
+%\printindex
+
+\end{document}
