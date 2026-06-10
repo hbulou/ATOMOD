@@ -1,6 +1,57 @@
 # Projet ATOMOD
 
-## 1. Installation
+## Installer l'environnement python "ATOMOD"
+<details>
+<summary> Linux </summary>
+
+### Installer l'environnement python "ATOMOD"
+```bash
+cd
+python3 -m venv venv/ATOMOD   # création de l'environnement - répertoire ~/venv/Emergence
+source venv/ATOMOD/bin/activate  # activation de l'environnement
+pip install --upgrade pip                   # màj de pip
+pip install -r requirements.txt
+```
+ou
+```bash
+cd
+python3 -m venv venv/ATOMOD   # création de l'environnement - répertoire ~/venv/ATOMOD
+source venv/ATOMOD/bin/activate  # activation de l'environnement
+pip install --upgrade pip                   # màj de pip
+
+```
+</details>
+
+<details>
+<summary>Windows</summary>
+Il est fortement conseillé de ne pas installer les bibliothèques globalement pour éviter les conflits de versions.
+<li>Ouvrez le Terminal Windows (clic droit sur le bouton Démarrer).</li>
+<li>Naviguez vers le dossier de votre projet :</li>
+
+```
+cd "C:\chemin\vers\votre\dossier"
+```
+
+<li>Créez l'environnement :</li>
+
+```
+py -m venv venv
+```
+
+<li>Activez l'environnement :</li>
+
+```
+.\venv\Scripts\activate
+```
+
+<li>Lancer l'installation groupée</li>
+
+```
+pip install -r requirements.txt
+```
+
+
+## 2. Installation
 * choisir un répertoire où stocker ATOMOD et s'y placer
 * cloner ATOMOD
 ```sh
@@ -22,7 +73,7 @@ module load python
 ```
 
 
-### 1.1. sur hpc
+### 2.1. sur hpc
 ```bash
 cd
 module load python
@@ -45,7 +96,7 @@ pyuic6 HB_ATOMOD_GUI.ui -o HB_ATOMOD_GUI.py
 ```
 -----------------------
 
-### 1.2. Utilisation de MACE (Multi-Atomic Cluster Expansion)
+### 2.2. Utilisation de MACE (Multi-Atomic Cluster Expansion)
 
 MACE (Multi-Atomic Cluster Expansion) est une architecture de potentiel interatomique basé sur l'apprentissage automatique (Machine Learning Interatomic Potential, MLIP).
 
@@ -69,8 +120,8 @@ Des versions pré-entraînées (modèles universels) couvrent une grande partie 
 | Efficacité | Très compétitif en termes de vitesse d'entraînement et d'inférence | 
 | Généralisation | Bonne capacité à extrapoler hors des données d'entraînement|
 
-#### 1.2.1. MACE dans ATOMOD
-#### 1.2.1.1. Installation
+#### 2.2.1. MACE dans ATOMOD
+#### 2.2.1.1. Installation
 
 **Chargement du modèle**
 
