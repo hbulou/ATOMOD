@@ -40,3 +40,5 @@ Archives/
 *.aux
 *.toc
 *.out
+*.bbl
+*.blg

@@ -26,6 +26,7 @@
 \usepackage{cprotect}
 \usepackage{float}
 \usepackage{bm}
+\usepackage{forest}
 % Géométrie de la page
 \geometry{
     left=1.0cm,
@@ -108,6 +109,22 @@
     language=Python
 }
 
+
+
+
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\tikzset{%
+	>={Latex[width=2mm,length=2mm]},
+	% Specifications for style of nodes:
+	base/.style = {rectangle, rounded corners, draw=black,
+					minimum width=4cm, minimum height=1cm,
+					text centered, font=\sffamily},
+	algorithmStarts/.style = {base, fill=blue!30},
+	startstop/.style = {base, fill=red!30},
+	function/.style = {base, fill=green!30},
+	process/.style = {base, minimum width=2.5cm, fill=orange!15,font=\ttfamily},
+}
 % Titre personnalisé
 \title{\Huge\textbf{\textcolor{darkblue}{ATOMOD}}\\
        \Large\textcolor{darkgreen}{Guide d'utilisation complet}\\
@@ -132,26 +149,148 @@
 \newpage
 \tableofcontents
 \newpage
+% ============================================================================
+% Chapitre XXX
+% ============================================================================
+\cprotect\chapter{Le modèle \verb+ATOMOD+}
 La finalité de l'application \verb+ATOMOD+ est de reconstruire une structure 3D à partir d'informations projetées 2D (TEM) et intégrées statistiquement (EXAFS global) à une carte atomique 3D discrète d'un alliage à haute entropie (HEA), où le désordre chimique est maximal.
 
-Dans ce contexte, nous avons développé une approche basée sur une architecture de type UNet, modifiée avec du conditionnement "FiLM".
-C'est une approche basée sur une architecture de type UNet 2D conditionnée par un Encodeur EXAFS. Elle permet que l'information spectroscopique guide la reconstruction d'image tout au long du processus. L'image TEM donne les positions ($x$, $y$), l'EXAFS donne les distances locales pour la dimension $z$ et la chimie.
+Dans ce contexte, nous avons développé une approche basée sur une architecture de type \verb+UNet+, modifiée avec du conditionnement "FiLM".
+C'est une approche basée sur une architecture de type \verb+UNet+ 2D conditionnée par un Encodeur EXAFS. Elle permet que l'information spectroscopique guide la reconstruction d'image tout au long du processus. L'image TEM donne les positions ($x$, $y$), l'EXAFS donne les distances locales pour la dimension $z$ et la chimie.
 Le principe de fonctionnement est qu'à chaque étage de \verb+UNet+, on injecte l'information EXAFS, qui va influencer ou "moduler" la manière dont l'image est traitée pendant le processus de calcul. Le spectre peut forcer le UNet à activer certains canaux de sortie (certains plans atomiques $z$) qu'il aurait ignorés autrement.
 
+
+\begin{tikzpicture}[node distance=1.5cm,
+	every node/.style={fill=white, font=\sffamily}, align=center]
+	% Specification of nodes (position, etc.)
+	\node (start)               [algorithmStarts]                              {Train};
+	\node (configDef)           [process, below of=start]                      {configuration set};
+	\node (configFunc)          [function, right of=configDef, xshift=4cm]     {config=\{ $\cdots$\}};
+	\node (modelDef)            [process, below of=configDef]                  {model definition};
+	\node (modelFunc)           [function, right of=modelDef, xshift=4cm]      {build\_atomod\_v2(config)};
+	\node (modelCompil)         [process, below of=modelDef]                   {model compilation};
+	\node (modelCompilFunc)     [function, right of=modelCompil, xshift=4cm]   { model.compile($\cdots$)};
+	\draw[->]             (start) -- (configDef);
+	\draw[->]             (configDef) -- (modelDef);
+	\draw[->]             (modelDef) -- (modelCompil);
+	\draw[->]             (configDef) -- (configFunc);
+	\draw[->]             (modelDef) -- (modelFunc);
+	\draw[->]             (modelCompil) -- (modelCompilFunc);
+	
+ \end{tikzpicture}
+
+\cprotect\section{Arguments principaux de la méthode \verb+model.fit+}
+
+\begin{enumerate}
+	\item Les arguments de Données (Les entrées)
+	\begin{itemize}
+		\item \verb+x+ : les données d'entrée utilisées pour l'entrainement.
+	\end{itemize}
+	\item Les arguments de Configuration du Cycle d'entrainement
+	\item Les arguments de validation
+	\item Les arguments de contrôle et d'affichage
+\end{enumerate}
+
+
+\cprotect\section{Le "train\_generator"}
+
+Dans la fonction \verb+model.fit()+, \verb+train_generator+ représente le générateur de données qui sert  à alimenter le réseau de neurones en cours d'entraînement. 
+Il prépare, nettoie, normalise et livre les données par petits paquets directement utilisables par le calcul mathématique de \verb+model.fit+.
+Plutôt que de charger toutes les images TEM, volumes 3D et spectres EXAFS en mémoire RAM d'un coup (ce qui risquerait de "planter" l'ordinateur en raison du volume massif de données de simulation), le générateur fonctionne selon le principe du chargement à la volée ("on-the-fly").
+Durant l'entrainement, le \verb+train_generator"+ découpe les données servant à l'entrainement en lots (\verb+Batches+). Par exemple au lieu de donner les images TEM, les spectres EXAFS et les volume 3D de probabilité de présence atomique des 10 000 nanoparticules d'un coup, \verb+train_generator"+ regroupe les données par petits paquets. si le \verb+BATCH_SIZE+ est fixé à 4, le \verb+train_generator"+
+	\begin{itemize}
+		\item lit 4 images TEM (une par nanoparticules),
+		\item lit 4$\times$\verb+N_ESPECES+ spectres EXAFS,
+		\item lit 4$\times$\verb+N_ESPECES+ volumes 3D des probabilités de présence atomique cibles,
+		\item assemble toutes ces données dans des tableaux NumPy et le envoie au GPU.
+	\end{itemize}
+A chaque itération, \verb+train_gen+ fournit un couple strict de données sous la forme
+
+ \verb+([batch_tem, batch_exafs], batch_volume_target )+ :
+ \begin{itemize}
+ 	\item \verb+batch_tem+ : Les 4 images TEM de forme \verb+(4, 128, 128, 1)+,
+ 	\item \verb+batch_exafs+ : Les 4 matrices de spectres normalisés de forme \verb+(4, N_points, 3)+,
+ 	\item \verb+batch_volume_target+ : Les 4 volumes 3D cibles de forme \verb+(4, 128, 128, N_especes * N_plans)+.
+ \end{itemize}
+
+Grâce à la fonction \verb+on_epoch_end()+ intégrée dans les générateurs \verb+Keras+, dès qu'une époque se termine, \verb+train_generator+ mélange l'ordre des nanoparticules. Ainsi, à l'époque suivante, le réseau ne verra pas les données dans le même ordre, ce qui améliore grandement la robustesse de l'apprentissage et évite le sur-apprentissage.
+
+\cprotect\section{Le "validation\_generator"}
+Dans la fonction \verb+model.fit()+, \verb+validation_generator+ représente le générateur des données de validation.
+
+Il fonctionne exactement sur le même principe logistique que \verb+train_generator+ (chargement et normalisation à la volée par lots), mais il sert un objectif complètement différent : évaluer les performances réelles du modèle sur des nanoparticules qu'il n'a jamais vues pendant son entraînement.
+
+\verb+validation_generator+ sert à
+\begin{itemize}
+	\item Détecter le Sur-apprentissage (Overfitting) : C'est le plus grand danger avec les données simulées \textit{in silico}. Le modèle est très intelligent : il est capable d'apprendre par cœur les pixels exacts de des images d'entraînement. Si la perte de \verb+train_generator+ baisse mais que la perte de \verb+validation_generator+ stagne ou remonte, le modèle est en train d'apprendre par cœur. Il devient inutile pour de futures vraies images TEM.
+	\item Piloter les Callbacks : C'est grâce aux résultats obtenus sur \verb+validation_generator+ que le callback \verb+ModelCheckpoint("best_atomod.h5", save_best_only=True)+ sait s'il doit sauvegarder le modèle. Il ne sauvegarde que si le score sur le jeu de validation s'améliore.
+	\item Arrêter l'entraînement au bon moment : Le callback \verb+EarlyStopping+ surveille \verb+validation_generator+. Si l'erreur de validation ne baisse plus pendant 10 époques d'affilée, il coupe l'entraînement automatiquement pour éviter de perdre du temps et d'endommager la généralisation du réseau.
+\end{itemize}
+
+\begin{warningbox}
+Contrairement à \verb+train_generator+, \verb+validation_generator+ ne doit jamais mélanger ses données de manière aléatoire en cours de route (\verb+shuffle=False+). On veut que l'évaluation soit fixe et rigoureuse à chaque fin d'époque pour comparer équitablement les scores.
+\end{warningbox}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{L'encodeur EXAFS}
+
+Le but de l'encodeur est de condenser le signal 1D (qui contient les fréquences d'oscillation liées aux distances interatomiques et à la coordination) en un vecteur latent global. Ce vecteur servira ensuite à piloter les blocs "FiLM" du \verb+UNet+.
+
+
 
 Trois architectures sont possibles.
 
-Les réseaux de neurones convolutifs 1D (1D-CNN) sont parfaits pour l'EXAFS. Les convolutions sont capables de détecter les oscillations (fréquences), les pics de coordination et les motifs locaux, indépendamment de leur position exacte sur le vecteur $\bm{k}$.
+Les réseaux de neurones convolutifs 1D (\verb+1D-CNN+) sont parfaits pour l'EXAFS. Les convolutions sont capables de détecter les oscillations (fréquences), les pics de coordination et les motifs locaux, indépendamment de leur position exacte sur le vecteur $\bm{k}$.
 En physique, la fréquence des oscillations dans l'espace $k$ est directement liée à la distance interatomique $R$. Les filtres de convolution d'un CNN 1D agissent mathématiquement comme des détecteurs de motifs oscillants. Le réseau apprendra à associer certaines fréquences de convolution à des distances spécifiques, simulant ainsi une sorte de "Transformée de Fourier interne".
 
 Les alliages à haute entropie génèrent des spectres EXAFS très complexes avec un fort désordre structurel entraînant des pics de transformée de Fourier souvent amortis ou superposés.
-Un mini-ResNet $1\text{D}$ avec des connexions résiduelles permet d'aller chercher des caractéristiques très subtiles sans souffrir du problème de disparition du gradient.
+Un \verb+mini-ResNet+ $1\text{D}$ avec des connexions résiduelles permet d'aller chercher des caractéristiques très subtiles sans souffrir du problème de disparition du gradient.
  
 Un perceptron multicouche (MLP) classique traite le spectre comme un simple vecteur géant de caractéristiques indépendantes. L'inconvénient est qu'il perd la notion d'ordre et de continuité des points le long de l'axe $k$. En revanche si on l'entraîne non pas sur l'espace $k$ (le signal $\chi(k)$), mais directement sur le spectre dans l'espace $R$ (la Transformée de Fourier du spectre), le MLP est très efficace car les positions des pics (première couche de coordination, deuxième couche) sont fixes sur l'axe des $R$.
  
+ 
+ Selon que l'on travaille dans l'espace $k$ ou l'espace $R$, l'information pertinente à extraire des signaux EXAFS diffère.
+ Dans l'espace $k$, le signal utile réside entièrement dans la fréquence, l'amplitude et le déphasage des oscillations du signal $\chi(k)$ (ou plus précisément de sa forme pondérée $k^2\chi(k)$ ou $k^3\chi(k)$).
+ Pour l'espace $k$, le \verb+CNN+ $1D$ est le choix le plus puissant et le plus adapté, pour deux raisons physiques et mathématiques :
+ \begin{itemize}
+ 	\item Détection des fréquences (Distances) : En physique, la fréquence des oscillations dans l'espace $k$ est directement liée à la distance interatomique $R$. Les filtres de convolution d'un \verb+CNN+ $1D$ agissent mathématiquement comme des détecteurs de motifs oscillants. Le réseau apprendra à associer certaines fréquences de convolution à des distances spécifiques, simulant ainsi une sorte de "Transformée de Fourier interne".
+ 	\item Robustesse au déphasage : Le \verb+Global Average Pooling+ à la fin du CNN permet de capturer la présence d'une fréquence ou d'une signature chimique, peu importe où l'oscillation commence ou s'atténue sur l'axe $k$.
+ \end{itemize}
+ 
+ 
 
 En entrée, on injecte une matrice de spectres (contenant chacun $N_\mathrm{points}$) de taille $N_\mathrm{points}\times N_\mathrm{espèces}$. Le rôle de l'encodeur est de compresser ce signal hautement dimensionnel en un vecteur "latent" compact (ex: 128 ou 256 valeurs) qui représente l' "empreinte digitale" chimique et structurale locale de la particule.
+
+A priori, il est conseillé d'injecter dans le réseau le signal déjà multiplié par $k^2$ ou $k^3$ (\textcolor{red}{A vérifier}). Les oscillations à haut $k$ contiennent l'information sur la nature des atomes rétrodiffuseurs\cite{newville2004}. Si on injecte le signal non pondéré, le réseau va ignorer la fin du spectre parce que son amplitude est trop faible par rapport au début.
+
+
+
+\begin{figure}[h]
+	\centering
+	% Début de l'environnement forest
+	\begin{forest}
+		for tree={
+			draw,                % Dessine un cadre autour de chaque nœud
+			rounded corners,     % Coins arrondis pour l'esthétique
+			fill=blue!5,         % Un léger fond bleu pour bien voir les limites
+			align=center,        % Aligne le texte au centre et permet le saut de ligne (\\)
+			font=\small,         % Taille de la police
+			% --- Gestion automatique des espaces ---
+			l sep=1cm,           % Distance verticale entre les niveaux (Level Separation)
+			s sep=0.4cm,         % Distance HORIZONTALE MINIMALE entre les nœuds (Sibling Separation)
+		}
+		[Stand\_Alone\_ATOMOD.py
+		[train()\\ATOMOD/MachineLearning.py
+		[ build\_atomod\_v2()]
+		[load\_exafs\_inputs(config)]
+		]
+		[mk\_in\_silico\_data()
+		[ATOMOD/data\_generation.py]
+		]
+		]
+	\end{forest}
+	\cprotect\caption{Structure du code \verb+Stand_Alone_ATOMOD.py+}
+\end{figure}
 
 \section{Le UNet de reconstruction}
 
@@ -163,12 +302,77 @@ C'est un UNet standard, mais ses blocs de convolution sont modifiés pour accept
 \cprotect\chapter{Utilisation du code \verb+FEFF+ dans le projet \verb+M2P2_HEA+}
 \section{Objectif scientifique}
 Dans le cadre du projet \verb+M2P2_HEA+, le code de calcul \textit{ab initio} \verb+FEFF+ est utilisé pour générer une base de données massive et standardisée de spectres d'absorption de rayons X (XAS/EXAFS). Cette base de données constitue le socle d'apprentissage du réseau de neurones \verb+ATOMOD+, dont l'objectif est la reconstruction structurale 3D et l'identification chimique des nanoparticules d'alliages à haute entropie (HEA).
+
 \section{Méthodologie de Simulation}
-Le flux de travail repose sur une approche de modélisation "bottom-up". Des modèles atomiques de nanoparticules multimétalliques sont générés avec des configurations de taille ($N$), de forme et de degré d'alliage variables (coordonnées $x, y, z$).
-Puis,  pour chaque atome $i$ (espèce chimique $\mathrm{X}$) composant la nanoparticule, \verb+FEFF+ calcule la fonction de modulation $\chi_i^{(\mathrm{X)}}(k)$ résultant de l'interférence du photo-électron éjecté de l'atome $i$avec son environnement local. Afin de reproduire le signal expérimental (qui est une mesure macroscopique), le script automatise le calcul de chaque atome de la nanoparticule en tant qu'absorbeur potentiel. Le spectre final est obtenu par une moyenne pondérée :
+Le flux de travail repose sur une approche de modélisation "bottom-up". Des modèles atomiques de nanoparticules multimétalliques sont générés avec des configurations de taille ($N$), de forme et de degré d'alliage variables (coordonnées $x, y, z$) (Fig.~\ref{fig:exafs}(a)).
+Puis,  pour chaque atome $i$ (espèce chimique $\mathrm{X}$) composant la nanoparticule, \verb+FEFF+ calcule la fonction de modulation $\chi_i^{(\mathrm{X)}}(k)$ résultant de l'interférence du photo-électron éjecté de l'atome $i$ avec son environnement local+ (Fig.~\ref{fig:exafs}(b,c,d)). 
+Afin de reproduire le signal expérimental (qui est une mesure macroscopique), le script automatise le calcul de chaque atome de la nanoparticule en tant qu'absorbeur potentiel. Le spectre final est obtenu par une moyenne pondérée :
 \begin{equation}
 	\chi_\mathrm{global}^{(\mathrm{X})}(k)=\frac{1}{N_\mathrm{X}}\sum_{i=1}^{N_\mathrm{X}}\chi_i^{(\mathrm{X)}}(k)
 \end{equation}
+
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.5\textwidth]{Figures/AuPtCo}
+	\caption{Vue 3D d'une particule $AuCoPt$.}
+	\label{fig:3D}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	
+	% === RANGÉE 1 ===
+	% Sous-figure A (Haut-Gauche)
+	\begin{subfigure}[b]{0.75\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{tutorials/chi(k).png}
+		\caption{Spectres $\chi(k)$.}
+		\label{fig:chi}
+	\end{subfigure}
+	
+	\vspace{0.25cm} % <--- Espace vertical entre les deux rangées
+	% \newline ou une ligne vide fonctionne aussi pour aller à la ligne
+	
+	% === RANGÉE 2 ===
+	% Sous-figure C (Bas-Gauche)
+	\begin{subfigure}[b]{0.75\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{tutorials/kchi(k).png}
+		\caption{Spectres $k\cdot\chi(k)$.}
+		\label{fig:kchi}
+	\end{subfigure}
+	
+	\vspace{0.25cm} % <--- Espace vertical entre les deux rangées
+% \newline ou une ligne vide fonctionne aussi pour aller à la ligne
+
+% === RANGÉE 2 ===
+% Sous-figure C (Bas-Gauche)
+\begin{subfigure}[b]{0.75\textwidth}
+	\centering
+	\includegraphics[width=\textwidth]{tutorials/k2chi(k).png}
+	\caption{Spectres $k^2\cdot\chi(k)$.}
+	\label{fig:k2chi}
+\end{subfigure}
+
+	\vspace{0.25cm} % <--- Espace vertical entre les deux rangées
+
+% === RANGÉE 3 ===
+% Sous-figure C (Bas-Gauche)
+\begin{subfigure}[b]{0.75\textwidth}
+	\centering
+	\includegraphics[width=\textwidth]{tutorials/k3chi(k).png}
+	\caption{Spectres $k^3\cdot\chi(k)$.}
+	\label{fig:k3chi}
+\end{subfigure}
+
+	% === Légende globale ===
+	\caption{Pour chaque courbe représentant le signal EXAFS, la courbe en bleu représente le signal global emis par l'ensemble de la nanoparticule. Les autres couleur correspondant chacune au signal émis par un atome appartenant à la nanoparticule.}
+	\label{fig:exafs}
+\end{figure}
+
+Le script \verb+jupyter+ \verb+tuto-mk_mean.ipynb+ illustre le "workflow" pour générer les signaux EXAFS émis par une nanoparticule d'alliage $AuPtCo$.
+
 
 \cprotect\section{Structure du fichier de données générées par \verb+FEFF+}
 En sortie d'un calcul EXAFS (module final \verb+ff2x+), \verb+FEFF+ génère le fichier \verb+xmu.dat+.
@@ -202,8 +406,11 @@ Ce fichier est structuré sous forme de tableau en colonnes textuelles, précéd
 \begin{description}
 	\item[Architecture] On parle d'architecture pour désigner la structure théorique du réseau. C'est un concept abstrait, indépendant du problème ou des données. Par exemple, "l'architecture UNet" fait référence à la forme caractéristique en "U" du UNet, avec sa branche descendante (encodeur), sa branche ascendante (décodeur) et ses connexions sautées (skip connections).
 	\begin{todobox} Insérer une figure du UNet\end{todobox}
-	\cprotect\item[\verb+BATCH_SIZE+] Le \verb+BATCH_SIZE+ (Taille du Lot) est l'un des hyperparamètres les plus fondamentaux et les plus importants dans l'entraînement des réseaux de neurones. Il correspond au nombre d'échantillons de données (ici, d'images et de leurs 10 masques cibles) que le modèle va traiter simultanément avant d'ajuster ses poids.
-	\cprotect\item[\verb+EPOCHS+] Une époque représente un cycle complet d'entraînement. Une époque est définie comme un passage complet de l'ensemble du jeu de données d'entraînement à travers le réseau de neurones.
+	
+	\item[BATCH\_SIZE] Le \verb+BATCH_SIZE+ (Taille du Lot) est l'un des hyperparamètres les plus fondamentaux et les plus importants dans l'entraînement des réseaux de neurones. Il correspond au nombre d'échantillons de données (ici, d'images et de leurs 10 masques cibles) que le modèle va traiter simultanément avant d'ajuster ses poids.
+	
+	\item[EPOCHS] Une époque représente un cycle complet d'entraînement. Une époque est définie comme un passage complet de l'ensemble du jeu de données d'entraînement à travers le réseau de neurones.
+	
 	\item[Modèle] On parle de modèle (ou de modèle entraîné) dès que l'architecture est concrétisée : elle a des dimensions spécifiques (ex: des images de $128 \times 128$ en entrée, 15 canaux en sortie) et, surtout, elle possède des poids numériques appris après l'entraînement. C'est l'objet mathématique final sauvegardé dans un fichier \verb+.h5+ ou \verb+.keras+ et que l'on utilise pour faire des prédictions à partir des images TEM et des spectres EXAFS.
 	\cprotect\item[\verb+FiLM+] Le spectre génère des coefficients qui multiplient et s'ajoutent aux cartes de caractéristiques de l'image ($y=\gamma\cdot x+\beta$).
 \end{description}
@@ -212,5 +419,7 @@ Ce fichier est structuré sous forme de tableau en colonnes textuelles, précéd
 % ============================================================================
 
 %\printindex
-
+\bibliographystyle{plain} 
+\bibliography{ATOMOD}
+%\begin{thebibliography}{3}
 \end{document}
