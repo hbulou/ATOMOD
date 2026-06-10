@@ -1,6 +1,6 @@
 # Projet ATOMOD
 
-## Installer l'environnement python "ATOMOD"
+## 1. Installer l'environnement python "ATOMOD"
 <details>
 <summary> Linux </summary>
 
