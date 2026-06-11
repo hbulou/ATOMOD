@@ -72,14 +72,7 @@ source venv/ATOMOD/bin/activate  # activation de l'environnement
 pip install --upgrade pip                   # màj de pip
 pip install -r requirements.txt
 ```
-ou
-```bash
-cd
-python3 -m venv venv/ATOMOD   # création de l'environnement - répertoire ~/venv/ATOMOD
-source venv/ATOMOD/bin/activate  # activation de l'environnement
-pip install --upgrade pip                   # màj de pip
 
-```
 </details>
 
 <details>
