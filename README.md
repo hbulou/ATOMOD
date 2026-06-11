@@ -1,5 +1,66 @@
 # Projet ATOMOD
+## Récupérer les fichiers du projet ATOMOD
+Pour récupérer les fichiers du projet ATOMOD du dépôt Github, on utilise l'opération de **clonage**. Cela crée une copie locale identique au projet distant, incluant tout l'historique des modifications.
+    <a href="https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)" target="_blank">Comment configurer une clef SSH ?</a>
 
+Vous avez le choix entre quatre méthodes :
+
+<details>
+  <summary>1. La méthode classique (SSH)</summary>
+    
+Si vous avez configuré une clé SSH (ce qui est fortement recommandé), c'est la méthode la plus simple et la plus rapide ( 
+    
+     [Comment configurer une clef SSH ?](https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)
+    <a href="https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)" target="_blank">Comment configurer une clef SSH ?</a>
+    
+    ).
+
+1. Sur GitHub, allez sur la page de votre dépôt.
+2. Cliquez sur le bouton vert **Code**.
+3. Vérifiez que l'onglet **SSH** est sélectionné et copiez l'adresse `git@github.com:hbulou/ATOMOD.git`.
+4. Dans votre terminal, placez-vous là où vous voulez mettre le projet et tapez :
+```bash
+git clone git@github.com:hbulou/ATOMOD.git
+```
+
+</details>
+<details>
+  <summary>2. Si vous n'avez pas de clé SSH (HTTPS)</summary>
+Si vous êtes sur un ordinateur tiers où votre clé n'est pas installée, utilisez l'adresse HTTPS :
+
+```bash
+git clone https://github.com/hbulou/ATOMOD.git
+
+```
+
+*Note : GitHub vous demandera alors votre nom d'utilisateur et votre **Personal Access Token** (pas votre mot de passe).*
+
+</details>
+<details>
+  <summary>3. Télécharger sans utiliser Git (Archive ZIP)</summary>
+Si vous voulez juste les fichiers sans l'historique Git (pour une consultation rapide par exemple) :
+
+1. Sur la page du dépôt, cliquez sur **Code**.
+2. Cliquez sur **Download ZIP**.
+3. Décompressez le fichier sur votre ordinateur.
+
+
+
+</details>
+<details>
+  <summary> 4. Mettre à jour un dépôt déjà cloné</summary>
+Si vous avez déjà cloné le dépôt il y a quelque temps et que vous voulez récupérer les dernières modifications faites sur GitHub (par exemple après avoir édité un fichier directement via l'interface web), utilisez :
+
+```bash
+git pull origin main
+
+```
+
+
+</details>
+
+
+---
 ## 1. Installer l'environnement python "ATOMOD"
 <details>
 <summary> Linux </summary>
