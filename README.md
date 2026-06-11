@@ -1,5 +1,5 @@
 # Projet ATOMOD
-Le projet ATOMOD est hébergé sur GitHub. Bien qu'il ne soit pas nécessaire d'avoir un compte GitHub pour récupérer le projet, c'est toutefois fortement recommandé pour bénéficier facilement des mises à jour régulières (voir (Créer un compte GitHub)[https://github.com/hbulou/ATOMOD/wiki/Cr%C3%A9er-un-compte-GitHub).
+Le projet ATOMOD est hébergé sur GitHub. Bien qu'il ne soit pas nécessaire d'avoir un compte GitHub pour récupérer le projet, c'est toutefois fortement recommandé pour bénéficier facilement des mises à jour régulières (voir [Créer un compte GitHub]((https://github.com/hbulou/ATOMOD/wiki/Cr%C3%A9er-un-compte-GitHub).
 
 ## Récupérer les fichiers du projet ATOMOD
 Pour récupérer les fichiers du projet ATOMOD du dépôt Github, on utilise l'opération de **clonage**. Cela crée une copie locale identique au projet distant, incluant tout l'historique des modifications.
