@@ -1,19 +1,17 @@
 # Projet ATOMOD
+Le projet ATOMOD est hébergé sur GitHub. Bien qu'il ne soit pas nécessaire d'avoir un compte GitHub pour récupérer le projet, c'est toutefois fortement recommandé pour bénéficier facilement des mises à jour régulières (voir (Créer un compte GitHub)[https://github.com/hbulou/ATOMOD/wiki/Cr%C3%A9er-un-compte-GitHub).
+
 ## Récupérer les fichiers du projet ATOMOD
 Pour récupérer les fichiers du projet ATOMOD du dépôt Github, on utilise l'opération de **clonage**. Cela crée une copie locale identique au projet distant, incluant tout l'historique des modifications.
-    <a href="https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)" target="_blank">Comment configurer une clef SSH ?</a>
 
 Vous avez le choix entre quatre méthodes :
+
+
 
 <details>
   <summary>1. La méthode classique (SSH)</summary>
     
-Si vous avez configuré une clé SSH (ce qui est fortement recommandé), c'est la méthode la plus simple et la plus rapide ( 
-    
-     [Comment configurer une clef SSH ?](https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)
-    <a href="https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)" target="_blank">Comment configurer une clef SSH ?</a>
-    
-    ).
+Si vous avez configuré une clé SSH (ce qui est fortement recommandé), c'est la méthode la plus simple et la plus rapide (voir [Comment configurer une clef SSH ?](https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)).
 
 1. Sur GitHub, allez sur la page de votre dépôt.
 2. Cliquez sur le bouton vert **Code**.
