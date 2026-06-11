@@ -59,7 +59,8 @@ git pull origin main
 
 
 ---
-## 1. Installer l'environnement python "ATOMOD"
+## 1. Installer l'environnement vituel "ATOMOD"
+L'environnement virtuel ATOMOD est un espace de travail isolé sur votre ordinateur dédiée au projet ATOMOD. Il contient toutes les bibliothèques nécéssaires à l'exécution d'ATOMOD.
 <details>
 <summary> Linux </summary>
 
