@@ -1,7 +1,12 @@
 # Projet ATOMOD
 Le projet ATOMOD est hébergé sur GitHub. Bien qu'il ne soit pas nécessaire d'avoir un compte GitHub pour récupérer le projet, c'est toutefois fortement recommandé pour bénéficier facilement des mises à jour régulières (voir [Créer un compte GitHub](https://github.com/hbulou/ATOMOD/wiki/Cr%C3%A9er-un-compte-GitHub)).
 
-## Récupérer les fichiers du projet ATOMOD
+## 1. Installation d'ATOMOD
+Outre les fichiers spécifique au projet ATOMOD, ATOMOD dépend de la bibliothèque [HBPy](https://github.com/hbulou/site-packages) développée à l'IPCMS. 
+
+
+
+### 2. Récupérer les fichiers du projet ATOMOD
 Pour récupérer les fichiers du projet ATOMOD du dépôt Github, on utilise l'opération de **clonage**. Cela crée une copie locale identique au projet distant, incluant tout l'historique des modifications.
 
 Vous avez le choix entre quatre méthodes :
@@ -13,19 +18,25 @@ Vous avez le choix entre quatre méthodes :
     
 Si vous avez configuré une clé SSH (ce qui est fortement recommandé), c'est la méthode la plus simple et la plus rapide (voir [Comment configurer une clef SSH ?](https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)).
 
-1. Sur GitHub, allez sur la page de votre dépôt.
+1. Sur GitHub, allez sur la page du dépôt [ATOMOD](https://github.com/hbulou/ATOMOD).
 2. Cliquez sur le bouton vert **Code**.
 3. Vérifiez que l'onglet **SSH** est sélectionné et copiez l'adresse `git@github.com:hbulou/ATOMOD.git`.
-4. Dans votre terminal, placez-vous là où vous voulez mettre le projet et tapez :
+4. Dans votre terminal, placez-vous là où vous voulez mettre le projet (Par exemple `~/src`). et tapez :
 ```bash
 git clone git@github.com:hbulou/ATOMOD.git
 ```
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/d0b9c4bf-047f-4876-9ba2-65345a733ebf" />
+
 
 </details>
 <details>
   <summary>2. Si vous n'avez pas de clé SSH (HTTPS)</summary>
-Si vous êtes sur un ordinateur tiers où votre clé n'est pas installée, utilisez l'adresse HTTPS :
+  Si vous êtes sur un ordinateur tiers où votre clé n'est pas installée, utilisez l'adresse HTTPS.
 
+  1. Sur GitHub, allez sur la page du dépôt [ATOMOD](https://github.com/hbulou/ATOMOD).
+  2. Cliquez sur le bouton vert **Code**.
+  3. Vérifiez que l'onglet **HTTPS** est sélectionné et copiez l'adresse `https://github.com/hbulou/ATOMOD.git`.
+  4. Dans votre terminal, placez-vous là où vous voulez mettre le projet (Par exemple `~/src`). et tapez :
 ```bash
 git clone https://github.com/hbulou/ATOMOD.git
 
@@ -33,14 +44,19 @@ git clone https://github.com/hbulou/ATOMOD.git
 
 *Note : GitHub vous demandera alors votre nom d'utilisateur et votre **Personal Access Token** (pas votre mot de passe).*
 
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/61958c5a-2257-48ec-bd23-513842970727" />
+
+
 </details>
 <details>
   <summary>3. Télécharger sans utiliser Git (Archive ZIP)</summary>
 Si vous voulez juste les fichiers sans l'historique Git (pour une consultation rapide par exemple) :
 
-1. Sur la page du dépôt, cliquez sur **Code**.
+1. Sur GitHub, allez sur la page du dépôt [ATOMOD](https://github.com/hbulou/ATOMOD).
 2. Cliquez sur **Download ZIP**.
-3. Décompressez le fichier sur votre ordinateur.
+3.  Dans votre terminal, placez-vous là où vous voulez mettre le projet (Par exemple `~/src`). et décompressez le fichier sur votre ordinateur.
+
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/61958c5a-2257-48ec-bd23-513842970727" />
 
 
 
@@ -58,18 +74,20 @@ git pull origin main
 </details>
 
 
----
-## 1. Installer l'environnement vituel "ATOMOD"
+
+### 3. Installer l'environnement vituel "ATOMOD"
 L'environnement virtuel ATOMOD est un espace de travail isolé sur votre ordinateur dédiée au projet ATOMOD. Il contient toutes les bibliothèques nécéssaires à l'exécution d'ATOMOD.
 <details>
 <summary> Linux </summary>
 
-### Installer l'environnement python "ATOMOD"
 ```bash
 cd
 python3 -m venv venv/ATOMOD   # création de l'environnement - répertoire ~/venv/Emergence
 source venv/ATOMOD/bin/activate  # activation de l'environnement
 pip install --upgrade pip                   # màj de pip
+```
+Allez ensuite dans le répertoire contenant les fichiers ATOMOD
+```bash
 pip install -r requirements.txt
 ```
 
@@ -105,17 +123,92 @@ pip install -r requirements.txt
 </details>
 
 
+### 1. Récupérer les fichiers de la bibliothèque HBPy
+Pour récupérer les fichiers de la bibliothèque HBPy, on utilise l'opération de **clonage**. Cela crée une copie locale identique au projet distant, incluant tout l'historique des modifications.
 
+Vous avez le choix entre quatre méthodes :
 
-## 2. Installation
-* choisir un répertoire où stocker ATOMOD et s'y placer
-* cloner ATOMOD
-```sh
-git clone git@github.com:hbulou/ATOMOD.git
+<details>
+  <summary>1. La méthode classique (SSH)</summary>
+    
+Si vous avez configuré une clé SSH (ce qui est fortement recommandé), c'est la méthode la plus simple et la plus rapide (voir [Comment configurer une clef SSH ?](https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)).
+
+1. Sur GitHub, allez sur la page du dépôt [HBPy](https://github.com/hbulou/site-packages).
+2. Cliquez sur le bouton vert **Code**.
+3. Vérifiez que l'onglet **SSH** est sélectionné et copiez l'adresse `git@github.com:hbulou/ATOMOD.git`.
+4. Dans votre terminal, placez-vous là où vous voulez mettre le projet (Par exemple `~/src`). et tapez :
+```bash
+git clone git@github.com:hbulou/site-packages.git
 ```
-* en principe un répertoire ATOMOD a été créé. Aller dans ATOMOD
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/59a50e8b-d70e-42fd-8661-6ca796d64e4d" />
+
+
+</details>
+<details>
+  <summary>2. Si vous n'avez pas de clé SSH (HTTPS)</summary>
+  Si vous êtes sur un ordinateur tiers où votre clé n'est pas installée, utilisez l'adresse HTTPS.
+
+  1. Sur GitHub, allez sur la page du dépôt [HBPy](https://github.com/hbulou/site-packages).
+  2. Cliquez sur le bouton vert **Code**.
+  3. Vérifiez que l'onglet **HTTPS** est sélectionné et copiez l'adresse `https://github.com/hbulou/ATOMOD.git`.
+  4. Dans votre terminal, placez-vous là où vous voulez mettre le projet (Par exemple `~/src`). et tapez :
+```bash
+git clone https://github.com/hbulou/ATOMOD.git
+
+```
+
+*Note : GitHub vous demandera alors votre nom d'utilisateur et votre **Personal Access Token** (pas votre mot de passe).*
+
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/11066d0d-702b-444d-8fda-54262d42c0a9" />
+
+
+</details>
+<details>
+  <summary>3. Télécharger sans utiliser Git (Archive ZIP)</summary>
+Si vous voulez juste les fichiers sans l'historique Git (pour une consultation rapide par exemple) :
+
+1. Sur GitHub, allez sur la page du dépôt [HBPy](https://github.com/hbulou/site-packages).
+2. Cliquez sur **Download ZIP**.
+3.  Dans votre terminal, placez-vous là où vous voulez mettre le projet (Par exemple `~/src`). et décompressez le fichier sur votre ordinateur.
+
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/11066d0d-702b-444d-8fda-54262d42c0a9" />
+
+
+
+</details>
+<details>
+  <summary> 4. Mettre à jour un dépôt déjà cloné</summary>
+Si vous avez déjà cloné le dépôt il y a quelque temps et que vous voulez récupérer les dernières modifications faites sur GitHub (par exemple après avoir édité un fichier directement via l'interface web), utilisez :
+
+```bash
+git pull origin main
+
+```
+
+
+</details>
+
+### 2. Installer la biliothèque HBPy
+
+1. Placez vous dans le répertoire dans lequel la bibliothèque HBPy a été installée (par exemple `~/src/site-packages-main` si vous avez utilisé "Downlad ZIP" ou  `~/src/site-packages` autrement)
+```bash
+cd ; cd ~/src/site-packages
+```
+2. charger l'environnement ATOMOD. 
 ```sh
-cd ATOMOD
+source ~/venv/ATOMOD/bin/activate
+```
+2. Installer la biliothèque HBPy dans l'environnement ATOMOD
+```bash
+pip install -e .
+```
+## 2. Lancer ATOMOD
+L'installation d'ATOMOD n'est à faire qu'une seule fois. Ensuite, vous pouvez utiliser l'environnement ATOMOD pour lancer des scripts python permettant de générer des nanoparticules, d'en calculer les images TEM, les spectres EXAFS, de déterminer la composition idéal d'une nanoparticule en fonction de propriétés catalytiques souhaitées (modèle REACT2COMPO à venir), de déterminer la structure 3D d'une nanoparticule à partir d'images TEM et de spectres EXAFS (modèle ATOMOD), de détecter des amas à partir d'images TEM, etc.
+### 2.1 Tutoriels
+C'est également dans cet environnement que vous pourrez exécuter les scripts `jupyter` fournis dans le répertoire `./doc/tutorials`
+* Allez dans le répertoire ATOMOD. Par exemple, si vous avez choisit le répertoire `~/src` dans la section "Récupérer les fichiers du projet ATOMOD", vous devriez avoir un répertoire `~/src/ATOMOD`
+```sh
+cd ~/src/ATOMOD/doc/tutorials
 ```
 * charger l'environnement ATOMOD. 
 ```sh
@@ -123,12 +216,20 @@ source ~/venv/ATOMOD/bin/activate
 # ou
 source ~/venv/ATOMOD_gpu/bin/activate
 ```
+selon que vous disposez de `GPU` ou pas.
+* tapez la commande `jupyter lab`.
+
+`JupyterLab` s'ouvre dans votre navigateur, et vous voyez instantanément tous vos scripts Python et fichiers `.ipynb` issus de GitHub dans la colonne de gauche. Vous pouvez les exécuter, les modifier et les tester normalement.
+
+<img width="1000" alt="image" src="https://github.com/user-attachments/assets/d797f407-4052-4e34-a196-13ea65c1f56e" />
+
+<!--
 RQ : sur les serveurs de calcul, il peut être nécessaire de charger le module python au préalable
 ```sh
 module load python
 ```
 
-
+-----------------------------------------------------------------------------------------------------
 ### 2.1. sur hpc
 ```bash
 cd
@@ -293,3 +394,5 @@ unfix           1
 fix             2 all nvt temp 300.0 300.0 $(100*dt)
 run             250000          # 500 ps de production
 ```
+
+-->
