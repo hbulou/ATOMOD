@@ -1,20 +1,34 @@
 # Projet ATOMOD
-Le projet ATOMOD est hébergé sur GitHub. Bien qu'il ne soit pas nécessaire d'avoir un compte GitHub pour récupérer le projet, c'est toutefois fortement recommandé pour bénéficier facilement des mises à jour régulières (voir [Créer un compte GitHub](https://github.com/hbulou/ATOMOD/wiki/Cr%C3%A9er-un-compte-GitHub)).
+ATOMOD est un environnement numérique dans lequel vous trouverez une série de logiciels et de scripts python permettant de générer des nanoparticules, d'en calculer les images TEM, les spectres EXAFS, de déterminer la composition idéal d'une nanoparticule en fonction de propriétés catalytiques souhaitées (modèle REACT2COMPO à venir), de déterminer la structure 3D d'une nanoparticule à partir d'images TEM et de spectres EXAFS (modèle ATOMOD), de détecter des amas à partir d'images TEM, etc.
+
+Le projet ATOMOD est hébergé sur GitHub. Bien qu'il ne soit pas nécessaire d'avoir un compte GitHub pour installer l'environnement ATOMOD, c'est toutefois fortement recommandé pour bénéficier facilement des mises à jour régulières (voir [Créer un compte GitHub](https://github.com/hbulou/ATOMOD/wiki/Cr%C3%A9er-un-compte-GitHub)).
 
 ## 1. Installation d'ATOMOD
-Outre les fichiers spécifique au projet ATOMOD, ATOMOD dépend de la bibliothèque [HBPy](https://github.com/hbulou/site-packages) développée à l'IPCMS. 
+
+Outre les fichiers spécifique e l'environnement ATOMOD, le projet utilise également la bibliothèque [HBPy](https://github.com/hbulou/site-packages)
 
 
 
 ### 2. Récupérer les fichiers du projet ATOMOD
-Pour récupérer les fichiers du projet ATOMOD du dépôt Github, on utilise l'opération de **clonage**. Cela crée une copie locale identique au projet distant, incluant tout l'historique des modifications.
 
-Vous avez le choix entre quatre méthodes :
-
-
+Vous avez le choix entre quatre méthodes pour installer l'environnement ATOMOD :
 
 <details>
-  <summary>1. La méthode classique (SSH)</summary>
+  <summary>1. Télécharger sans utiliser GitHub (Archive ZIP)</summary>
+
+* (a). Allez sur la page du dépôt [ATOMOD](https://github.com/hbulou/ATOMOD).
+* (b). Cliquez sur **Download ZIP**.
+* (c).  Dans votre terminal, placez-vous là où vous voulez mettre le projet (Par exemple `~/src`) et décompressez le fichier `ATOMOD-main.zip`. Vous devriez avoir un nouveau répertoire `ATOMOD-main`.
+
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/61958c5a-2257-48ec-bd23-513842970727" />
+
+</details>
+
+
+<details><summary>2. Télécharger en utilisant GitHub (recommandé)</summary>
+
+<details>
+  <summary>&emsp;(a). La méthode classique (SSH)</summary>
     
 Si vous avez configuré une clé SSH (ce qui est fortement recommandé), c'est la méthode la plus simple et la plus rapide (voir [Comment configurer une clef SSH ?](https://github.com/hbulou/ATOMOD/wiki/Configurer-une-cl%C3%A9-SSH)).
 
@@ -30,7 +44,7 @@ git clone git@github.com:hbulou/ATOMOD.git
 
 </details>
 <details>
-  <summary>2. Si vous n'avez pas de clé SSH (HTTPS)</summary>
+  <summary>&emsp;(b). Si vous n'avez pas de clé SSH (HTTPS)</summary>
   Si vous êtes sur un ordinateur tiers où votre clé n'est pas installée, utilisez l'adresse HTTPS.
 
   1. Sur GitHub, allez sur la page du dépôt [ATOMOD](https://github.com/hbulou/ATOMOD).
@@ -46,34 +60,10 @@ git clone https://github.com/hbulou/ATOMOD.git
 
 <img width="900" alt="image" src="https://github.com/user-attachments/assets/61958c5a-2257-48ec-bd23-513842970727" />
 
-
-</details>
-<details>
-  <summary>3. Télécharger sans utiliser Git (Archive ZIP)</summary>
-Si vous voulez juste les fichiers sans l'historique Git (pour une consultation rapide par exemple) :
-
-1. Sur GitHub, allez sur la page du dépôt [ATOMOD](https://github.com/hbulou/ATOMOD).
-2. Cliquez sur **Download ZIP**.
-3.  Dans votre terminal, placez-vous là où vous voulez mettre le projet (Par exemple `~/src`). et décompressez le fichier sur votre ordinateur.
-
-<img width="900" alt="image" src="https://github.com/user-attachments/assets/61958c5a-2257-48ec-bd23-513842970727" />
-
-
-
-</details>
-<details>
-  <summary> 4. Mettre à jour un dépôt déjà cloné</summary>
-Si vous avez déjà cloné le dépôt il y a quelque temps et que vous voulez récupérer les dernières modifications faites sur GitHub (par exemple après avoir édité un fichier directement via l'interface web), utilisez :
-
-```bash
-git pull origin main
-
-```
-
-
+---
 </details>
 
-
+</details>
 
 ### 3. Installer l'environnement vituel "ATOMOD"
 L'environnement virtuel ATOMOD est un espace de travail isolé sur votre ordinateur dédiée au projet ATOMOD. Il contient toutes les bibliothèques nécéssaires à l'exécution d'ATOMOD.
