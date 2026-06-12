@@ -184,7 +184,14 @@ Le principe de fonctionnement est qu'à chaque étage de \verb+UNet+, on injecte
 \begin{enumerate}
 	\item Les arguments de Données (Les entrées)
 	\begin{itemize}
-		\item \verb+x+ : les données d'entrée utilisées pour l'entrainement.
+		\item \verb+x+ : les données d'entrée \verb+input+ utilisées pour l'entrainement. Il s'agit du générateur de données d'entraînement \verb+train_generator+ qui fournit le couple \verb+[batch_tem, batch_exafs]+).
+		\item \verb+y+ : Les données cibles \verb+target+. Cet argulent est laissé à \verb+None+ car le génératuer \verb+train_generator+ fournit \verb+x+ et \verb+y+ en même temps sous la forme de tuple \\ \verb+( [batch_tem, batch_exafs], batch_volume_target )+.
+	\end{itemize}
+	Par exemple, à chaque itération, \verb+train_generator+ envoie
+	\begin{itemize}
+		\item \verb+batch_tem+ : Les 4 images TEM (une par nanoparticule) de forme \verb+(4, 128, 128, 1)+,
+		\item \verb+batch_exafs+ : Les 4 matrices de spectres normalisés (une par nanoparticule) de forme \verb+(4, N_points, N_especes)+,
+		\item \verb+batch_volume_target\verb+ : Les 4 volumes 3D cibles (un par nanoparticule) de forme \verb+(4, 128, 128, N_especes * N_plans)+.
 	\end{itemize}
 	\item Les arguments de Configuration du Cycle d'entrainement
 	\item Les arguments de validation
