@@ -1,10 +1,10 @@
 # Projet ATOMOD
 ATOMOD est un environnement numérique dans lequel vous trouverez une série de logiciels et de scripts python permettant de générer des nanoparticules, d'en calculer les images TEM, les spectres EXAFS, de déterminer la composition idéal d'une nanoparticule en fonction de propriétés catalytiques souhaitées (modèle REACT2COMPO à venir), de déterminer la structure 3D d'une nanoparticule à partir d'images TEM et de spectres EXAFS (modèle ATOMOD), de détecter des amas à partir d'images TEM, etc.
 
+Le projet ATOMOD est hébergé sur GitHub. Bien qu'il ne soit pas nécessaire d'avoir un compte GitHub pour installer l'environnement ATOMOD, c'est toutefois fortement recommandé pour bénéficier facilement des mises à jour régulières (voir [Créer un compte GitHub](https://github.com/hbulou/ATOMOD/wiki/Cr%C3%A9er-un-compte-GitHub)).
 
 ## 1. Installation d'ATOMOD
 
-L'installation d'ATOMOD se fait au moyen du script python(install.py)[]
 Outre les fichiers spécifique e l'environnement ATOMOD, le projet utilise également la bibliothèque [HBPy](https://github.com/hbulou/site-packages)
 
 

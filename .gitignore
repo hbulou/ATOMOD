@@ -4,7 +4,6 @@ __pycache__/
 slurm*out
 ###data/
 bulou/
-*.sh
 *.h5
 *.xyz
 *.org
@@ -42,3 +41,4 @@ Archives/
 *.out
 *.bbl
 *.blg
+[OLD]*
