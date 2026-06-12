@@ -4,7 +4,7 @@ ATOMOD est un environnement numérique dans lequel vous trouverez une série de 
 
 ## 1. Installation d'ATOMOD
 
-L'installation d'ATOMOD se fait au moyen du script python <a href="https://raw.githubusercontent.com/hbulou/ATOMOD/refs/heads/main/install.py" download> install.py</a>
+L'installation d'ATOMOD se fait au moyen du script python <a href="https://raw.githubusercontent.com/hbulou/ATOMOD/refs/heads/main/install.py?download=true" download="install.py"> install.py</a>
 
 
 
