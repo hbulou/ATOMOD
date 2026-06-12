@@ -5,33 +5,72 @@ ATOMOD est un environnement numérique dans lequel vous trouverez une série de 
 ## 1. Installation d'ATOMOD
 
 L'installation d'ATOMOD se fait au moyen du script python `install.py`
-[(Télécharger)](https://github.com/hbulou/ATOMOD/releases/download/v0.1/install.py). Après le téléchargement, ouvrez une shell (linux) ou une PowerShell (windows) et exécutez la commande
-```PowerShell
+[(Télécharger)](https://github.com/hbulou/ATOMOD/releases/download/v0.1/install.py). 
+Après le téléchargement, ouvrez une shell (linux) ou une PowerShell (windows) et exécutez la commande
+
+### linux
+```sh
 python3 install.py
 ```
 
-
+### windows 
+```PowerShell
+python3-64.exe install.py
+```
 
 ## 2. Lancer ATOMOD
 L'installation d'ATOMOD n'est à faire qu'une seule fois. Ensuite, vous pouvez utiliser l'environnement ATOMOD pour lancer des scripts python permettant de générer des nanoparticules, d'en calculer les images TEM, les spectres EXAFS, de déterminer la composition idéal d'une nanoparticule en fonction de propriétés catalytiques souhaitées (modèle REACT2COMPO à venir), de déterminer la structure 3D d'une nanoparticule à partir d'images TEM et de spectres EXAFS (modèle ATOMOD), de détecter des amas à partir d'images TEM, etc.
+
+Pour activer l'environnement ATOMOD :
+#### linux
+```sh
+source ~/venv/ATOMOD/bin/activate
+```
+#### windows
+
+Placez vous dans le répertoire "utilisateur" tapez la commande
+```PowerShell
+C:\Users\<votre nom user>\venv\ATOMOD\Scripts\Activate.ps1
+```
+
 ### 2.1 Tutoriels
 C'est également dans cet environnement que vous pourrez exécuter les scripts `jupyter` fournis dans le répertoire `./ATOMOD/doc/tutorials`.
 
 C'est également un bon moyen de tester que l'installation a été faite correctement.
-* Allez dans le répertoire ATOMOD. Par exemple, si vous avez choisit le répertoire `~/src` dans la section "Récupérer les fichiers du projet ATOMOD", vous devriez avoir un répertoire `~/src/ATOMOD`
+
+#### linux
+Placez vous dans le répertoire contenant les scripts `jupyter` des tutoriels
 ```sh
 cd ~/src/ATOMOD/doc/tutorials
 ```
-* charger l'environnement ATOMOD. 
+Chargez l'environnement ATOMOD. 
+
 ```sh
 source ~/venv/ATOMOD/bin/activate
 ```
-* chargez le script `jupyter` tuto-TEM_image_simulation.ipynb
+Chargez le script `jupyter` tuto-TEM_image_simulation.ipynb
 ```bash
 jupyter lab tuto-TEM_image_simulation.ipynb
 ``` 
 
+#### windows
+Placez vous dans le répertoire "utilisateur" tapez la commande
+```PowerShell
+C:\Users\<votre nom user>\venv\ATOMOD\Scripts\Activate.ps1
+```
+Placez vous dans le répertoire "utilisateur" tapez la commande
+```PowerShell
+cd .\src\ATOMOD\doc\tutorials
+```
+Chargez le script `jupyter` tuto-TEM_image_simulation.ipynb
+```bash
+C:\Users\<votre nom user>\venv\ATOMOD\Scripts\jupyter-lab.exe .\tuto-TEM_image_simulation.ipynb
+``` 
+
+#### Fenètre Jupyter
+
 `JupyterLab` s'ouvre dans votre navigateur, et vous voyez instantanément tous vos scripts Python et fichiers `.ipynb` issus de GitHub dans la colonne de gauche. Vous pouvez les exécuter, les modifier et les tester normalement.
+
 
 <img width="1000" alt="image" src="https://github.com/user-attachments/assets/d797f407-4052-4e34-a196-13ea65c1f56e" />
 
