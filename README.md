@@ -69,16 +69,26 @@ C:\Users\<votre nom user>\venv\ATOMOD\Scripts\jupyter-lab.exe .\tuto-TEM_image_s
 
 #### Fenètre Jupyter
 
-`JupyterLab` s'ouvre dans votre navigateur, et vous voyez instantanément tous vos scripts Python et fichiers `.ipynb` issus de GitHub dans la colonne de gauche. Vous pouvez les exécuter, les modifier et les tester normalement.
+`JupyterLab` s'ouvre dans votre navigateur, et vous voyez instantanément tous vos scripts Python et fichiers `.ipynb` issus de GitHub dans la colonne de gauche. 
+Si tout c'est déroulé normalement, vous devriez voir cela :
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/b9ca143f-b927-4a93-948e-32e989abd735" />
 
 
-<img width="1000" alt="image" src="https://github.com/user-attachments/assets/d797f407-4052-4e34-a196-13ea65c1f56e" />
+
+
 
 
 
 
 
 <!--
+Vous pouvez les exécuter, les modifier et les tester normalement.
+
+
+
+
+<img width="1000" alt="image" src="https://github.com/user-attachments/assets/d797f407-4052-4e34-a196-13ea65c1f56e" />
+
 RQ : sur les serveurs de calcul, il peut être nécessaire de charger le module python au préalable
 ```sh
 module load python
