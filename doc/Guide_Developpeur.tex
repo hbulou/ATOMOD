@@ -170,13 +170,15 @@ Le principe de fonctionnement est qu'à chaque étage de \verb+UNet+, on injecte
 	\node (modelFunc)           [function, right of=modelDef, xshift=4cm]      {build\_atomod\_v2(config)};
 	\node (modelCompil)         [process, below of=modelDef]                   {model compilation};
 	\node (modelCompilFunc)     [function, right of=modelCompil, xshift=4cm]   { model.compile($\cdots$)};
+	\node (modelFit)            [process, below of=modelCompil]            {model fit};
+	
 	\draw[->]             (start) -- (configDef);
 	\draw[->]             (configDef) -- (modelDef);
 	\draw[->]             (modelDef) -- (modelCompil);
 	\draw[->]             (configDef) -- (configFunc);
 	\draw[->]             (modelDef) -- (modelFunc);
 	\draw[->]             (modelCompil) -- (modelCompilFunc);
-	
+	\draw[->]             (modelCompil) -- (modelFit);	
  \end{tikzpicture}
 
 \cprotect\section{Arguments principaux de la méthode \verb+model.fit+}
@@ -190,10 +192,15 @@ Le principe de fonctionnement est qu'à chaque étage de \verb+UNet+, on injecte
 	Par exemple, à chaque itération, \verb+train_generator+ envoie
 	\begin{itemize}
 		\item \verb+batch_tem+ : Les 4 images TEM (une par nanoparticule) de forme \verb+(4, 128, 128, 1)+,
-		\item \verb+batch_exafs+ : Les 4 matrices de spectres normalisés (une par nanoparticule) de forme \verb+(4, N_points, N_especes)+,
-		\item \verb+batch_volume_target\verb+ : Les 4 volumes 3D cibles (un par nanoparticule) de forme \verb+(4, 128, 128, N_especes * N_plans)+.
+		\item \verb+batch_exafs+ : Les 4 matrices de spectres normalisés (une par nanoparticule) de forme\\ \verb+(4, N_points, N_especes)+,
+		\item \verb+batch_volume_target+ : Les 4 volumes 3D cibles (un par nanoparticule) de forme\\ \verb+(4, 128, 128, N_especes * N_plans)+.
 	\end{itemize}
 	\item Les arguments de Configuration du Cycle d'entrainement
+	\begin{itemize}
+		\item \verb+batch_size+ est le nombre d'échantillons traités avant chaque mise à jour des poids du réseau.	Note : Si on passe un générateur à \verb+x+, cet argument n'est pas utilisé ici car la taille des lots est directement définie à l'intérieur du générateur.
+		\item \verb+epochs+ est le nombre total de fois où le modèle va parcourir l'intégralité du jeu de données d'entraînement.
+		\item \verb+steps_per_epoch+ est nombre total de lots (itérations) à faire défiler avant de déclarer qu'une époque est terminée. Généralement, on lui donne la valeur \verb+len(train_generator)+. Si le générateur contient 1000 lots, il fera 1000 étapes par époque.
+	\end{itemize}
 	\item Les arguments de validation
 	\item Les arguments de contrôle et d'affichage
 \end{enumerate}

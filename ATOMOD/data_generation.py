@@ -10,7 +10,7 @@ from HBPy.Molecule.Crystal import Crystal,Atom
 import matplotlib.pyplot as plt
 sys.path.append('./lib/')
 import abtem
-
+from pathlib import Path
 import logging
 # Configuration du logging
 logging.basicConfig(
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # ##################################################################################
 def mk_in_silico_data():
     status={
+        'NP':True,
         'abtem':True,
         'feff':True,
         'atomic probability map':True,
@@ -31,8 +32,10 @@ def mk_in_silico_data():
     config={
         'root_dir':'simul',
         'train':{
-            'TEM_img_dir':"train/images",  # répertoire de stockage des images TEM
-            'prob_maps_img_dir':"train/prob_maps"  # répertoire de stockage des images TEM
+            'TEM_img_dir'      : "train/TEM",        # répertoire de stockage des images TEM
+            'EXAFS_dir'        : "train/EXAFS",      # répertoire de stockage des spectres EXAFS
+            'prob_maps_img_dir': "train/prob_maps",  # répertoire de stockage des images TEM
+            'nfo_dir'          : "train/nfo",  # répertoire de stockage des images TEM
         },
         'abtem':{
             'status':status['abtem'],
@@ -56,19 +59,26 @@ def mk_in_silico_data():
         'atomic probability map':{
             'status':status['atomic probability map']
         },
+        'NP':{
+            'status':status['NP'],
+            'seed':2,
+            'structure':{
+                'optimization':status['optimization'],
+                #  'composition':['Pt','Co','Au'],
+                # 'radius':3.5,
+                # 'a':0.5*(3.55+3.92),
+                'composition':['Pt','Co','Au','Pd','Rh'],
+                'radius':9.0,
+                'a':3.92,
+            },
+            'nvaccum':2.0,
+        },
         'image':{
             'xmin':0.0,
             'xmax':0.0,
             'ymin':0.0,
             'ymax':0.0
             },
-        'nvaccum':2.0,
-        'structure':{
-            'optimization':status['optimization'],
-            'composition':['Pt','Co','Au'],
-            'radius':5.0,
-            'a':0.5*(3.55+3.92),
-        },
         'feff':{
             'status':status['feff'],
             'parameters':{
@@ -100,26 +110,32 @@ def mk_in_silico_data():
         }
     }
     ##############################################################################################################################"
+    config['root_dir']=f"{config['root_dir']}/{config['NP']['seed']}"
     # _______________________________________
     #
     # Etape 1 : construire la nanoparticules
     # _______________________________________
     #   Etape 1.1 : la structure
-    NP=Crystal()
-    NP.build(a=config['structure']['a'],
-             radius=config['structure']['radius'],
-             materials='NP')
-    NP.origin_at_mass_center()
-    logger.info(f"min={NP.qmin} max={NP.qmax}")
-    logger.info(f"Mass center={NP.MC}")
-    logger.info(f"Number of atoms={len(NP.atoms)}")
-    #   Etape 1.2 : la distribution chimique
+    if config['NP']['status']:
+        NP=Crystal()
+        NP.build(a=config['NP']['structure']['a'],
+                 radius=config['NP']['structure']['radius'],
+                 materials='NP')
+        NP.origin_at_mass_center()
+        logger.info(f"min={NP.qmin} max={NP.qmax}")
+        logger.info(f"Mass center={NP.MC}")
+        logger.info(f"Number of atoms={len(NP.atoms)}")
+        #   Etape 1.2 : la distribution chimique
 
-    NP.set_composition(config['structure']['composition'])
-    NP.save(prefix="NP",fmt='xyz',directory=config['root_dir'])
-    #   Etape 1.3 : (optionnelle) l'optimisation structurale et/ou chimique
-    if config['structure']['optimization']:
-        NP.optimize_ase()
+        NP.set_composition(config['NP']['structure']['composition'],seed=config['NP']['seed'])
+        directory=Path.cwd()/config['root_dir']/config['train']['nfo_dir']/"XYZ"
+        directory.mkdir(parents=True, exist_ok=True)
+
+        NP.save(prefix="NP",fmt='xyz',directory=directory)
+    
+        #   Etape 1.3 : (optionnelle) l'optimisation structurale et/ou chimique
+        if config['NP']['structure']['optimization']:
+            NP.optimize_ase()
 
     # ___________________________________________________________________
     #
@@ -141,15 +157,19 @@ def mk_in_silico_data():
     # ____________________________________________________
     # Etape 4 : construire les spectres EXAFS
     # ____________________________________________________
+    feff_dir=Path.cwd()/config['root_dir']/config['train']['nfo_dir']/"feff_input_files"
     if config['feff']['status']:
+        feff_dir.mkdir(parents=True, exist_ok=True)
         base_dir=os.getcwd()
-        for atm in NP.atoms:
-            config['feff']['parameters']['input_save_dir']=f"{config['root_dir']}/feff_input_files/{atm.elt}_{atm.idx}"
-            os.makedirs(config['feff']['parameters']['input_save_dir'], exist_ok=True)
-            os.chdir(f"{base_dir}/{config['feff']['parameters']['input_save_dir']}")
-            NP.FEFF_create_input_file(config['feff']['parameters'],absorber_idx=atm.idx)
-            NP.FEFF_run(config['feff']['parameters'])
-            os.chdir(base_dir)
+        if config['feff']['status']:
+            for atm in NP.atoms:
+                config['feff']['parameters']['input_save_dir']=f"{feff_dir}/{atm.elt}_{atm.idx}"
+                os.makedirs(config['feff']['parameters']['input_save_dir'], exist_ok=True)
+                
+                os.chdir(f"{config['feff']['parameters']['input_save_dir']}")
+                NP.FEFF_create_input_file(config['feff']['parameters'],absorber_idx=atm.idx)
+                NP.FEFF_run(config['feff']['parameters'])
+                os.chdir(base_dir)
     
     # Initialise automatiquement avec une liste vide
     series = defaultdict(list)
@@ -157,23 +177,47 @@ def mk_in_silico_data():
     base_dir=os.getcwd()
     logger.info(f"{base_dir}")
     for atm in NP.atoms:
-        xmu_dir=f"{config['root_dir']}/feff_input_files/{atm.elt}_{atm.idx}"
+        xmu_dir=f"{feff_dir}/{atm.elt}_{atm.idx}"
         try:
-            energy, chi = numpy.loadtxt(f"{xmu_dir}/xmu.dat", comments='#', usecols=(0, 4), unpack=True)
-            series[atm.elt].append((energy,chi))
+            k, chi = numpy.loadtxt(f"{xmu_dir}/xmu.dat", comments='#', usecols=(2, 5), unpack=True)
+            series[atm.elt].append((k,chi))
         except:
             logger.error(f"file {xmu_dir}/xmu.dat not found!")
-    for elt in NP.list_elt:
-        logger.info(f"{elt} : {len(series[elt])}")
-        energy,chi,dev=HBPy.Molecule.Tools.mk_mean(series[elt])
-        numpy.savetxt(
-            f"{config['root_dir']}/xmu_{elt}.dat",               # Le nom du fichier
-            numpy.column_stack((energy,chi,dev)),        # Le tableau 2D créé juste au-dessus
-            fmt='%.6f',               # Le format (ici : 6 chiffres après la virgule)
-            delimiter='    ',         # Le séparateur entre les colonnes (ici : 4 espaces)
-            header='#energy       Mean_mu0            std_dev', # (Optionnel) Ajoute un en-tête
-            comments='# '             # (Optionnel) Le caractère pour commenter l'en-tête
-        )
+    exafs_dir=Path.cwd()/config['root_dir']/config['train']['EXAFS_dir']
+    exafs_dir.mkdir(parents=True, exist_ok=True)
+
+
+    for kexpo in range(4):
+        if kexpo==0:
+            ylbl=r"$\chi(E)$"
+            savename="chi(k)"
+            header="# k (A^-1)   chi(k)"
+        elif kexpo==1:
+            ylbl=r"$k\cdot\chi(E)$"
+            savename="kchi(k)"
+            header="# k (A^-1)   k.chi(k)"
+        elif kexpo==2:
+            ylbl=r"$k^2\cdot\chi(E)$"
+            savename="k2chi(k)"
+            header="# k (A^-1)   k^2.chi(k)"
+        elif kexpo==3:
+            ylbl=r"$k^3\cdot\chi(E)$"
+            savename="k3chi(k)"
+            header="# k (A^-1)   k^3.chi(k)"
+
+        for elt in NP.list_elt:
+            logger.info(f"{elt} : {len(series[elt])}")
+            
+            k,chiglob,dev=HBPy.Molecule.Tools.mk_mean(series[elt],expo=kexpo)
+            logger.info(f"Saving {exafs_dir}/{savename}_{elt}.dat")
+            numpy.savetxt(
+                f"{exafs_dir}/{savename}_{elt}.dat",                       # Le nom du fichier
+                numpy.column_stack((k,chiglob)),               # Le tableau 2D créé juste au-dessus
+                fmt='%.6f',                                         # Le format (ici : 6 chiffres après la virgule)
+                delimiter='    ',                                   # Le séparateur entre les colonnes (ici : 4 espaces)
+                header=header,
+                comments='# '                                       # (Optionnel) Le caractère pour commenter l'en-tête
+            )
 # #########################################################################################
 if __name__ == "__main__":
     mk_in_silico_data()

@@ -69,7 +69,7 @@ def load_exafs_inputs(config):
     N=[]
     for filename in config['exafs']:
         
-        name=f"{config['root_dir']}/{filename}"
+        name=f"{config['DATA_ROOT']}/{filename}"
         try:
             #data[filename] = numpy.loadtxt(name, comments='#', usecols=(0,1))
             data[filename]=resampling(name,xmin=2.0,xmax=8.0,N=config['N_POINTS_EXAFS'])
@@ -166,14 +166,56 @@ def composition_constraint(y_true, y_pred):
 def combined_loss(y_true, y_pred):
     return dice_loss(y_true, y_pred) + 0.1 * composition_constraint(y_true, y_pred)
 
+class CustomMultimodalGenerator(tf.keras.utils.Sequence):
+    """
+    Générateur de données à la volée pour le modèle multimodal ATOMOD.
+    Fournit ([batch_tem, batch_exafs], batch_volume_target) à chaque itération.
+    """
+    def __init__(self,config):
+        """
+        Args:
+            data_ids (list): Liste des identifiants uniques des nanoparticules (ex: ['part_001', 'part_002', ...])
+            data_root (str): Répertoire racine contenant toutes les simulations.
+            batch_size (int): Taille des lots (BATCH_SIZE).
+            global_max_abs (numpy.ndarray): Vecteur de taille (N_ESPECES,) pour normaliser l'EXAFS.
+            shuffle (bool): Mélanger les données à la fin de chaque époque.
+        """
+        self.data_root = config['DATA_ROOT']
+        self.batch_size = config['BATCH_SIZE']
+        self.img_shape = (config['W'],config['H'])
+        self.n_points_exafs = config['N_POINTS_EXAFS']
+        self.n_especes = config['N_ESPECES']
+        self.n_z_plans = config['N_PLANS']
+    def __getitem__(self,index):
+        """ Génère un lot (batch) de données.
+        En Python, les méthodes entourées de doubles underscores (appelées méthodes magiques ou dunder methods)
+        sont conçues pour être déclenchées automatiquement par des opérateurs ou des fonctions du langage.
+        Pour le générateur train_generator(), __getitem__ est appelé en coulisses de deux façons différentes :
+            1. Par TensorFlow/Keras (Pendant l'entraînement) : lorsqu'on lances model.fit(train_generator), Keras sait que train_generator est une instance de tf.keras.utils.Sequence.
+               À chaque itération (chaque step), Keras va demander le lot suivant en utilisant la syntaxe des crochets de Python (le slicing).
+               C'est précisément l'utilisation des crochets [] qui déclenche l'exécution de __getitem__.
+            2. Pour tester ou déboguer le code
+               Appel manuel indirect de __getitem__ en demandant le lot 0 :
+                   [batch_x, batch_y] = train_generator[0]
+        """
+        
+        # 1. Sélectionner les indices du lot courant
+        start_idx = index * self.batch_size
+        end_idx   = (index + 1) * self.batch_size
+        print(f"{start_idx} {end_idx}")
+        # 4. Renvoi du couple strict exigé par model.fit()
+        #return [batch_tem, batch_exafs], batch_volume_target
+
 def train():
     # --- Configuration ---
     config={
-        'root_dir':'doc/tutorials',
+        'DATA_ROOT':'doc/tutorials',
         'exafs':["k2chi(k)_Au.dat", "k2chi(k)_Co.dat", "k2chi(k)_Pt.dat"],
-        'N_POINTS_EXAFS': 200, # Nombre de points par spectre
-        'N_ESPECES' : 5,        # CoCrFeMnNi par exemple
-        'N_PLANS' : 10,         # Nombre de plans en Z
+        'NPARTICULES':1,         # nombre de particules utilisées pour l'entrainement
+        'BATCH_SIZE':4,          # Taille des lots 
+        'N_POINTS_EXAFS': 200,   # Nombre de points par spectre
+        'N_ESPECES' : 3,         # CoCrFeMnNi par exemple
+        'N_PLANS' : 10,          # Nombre de plans en Z
         'H':128,
         'W':128,
         'optimizer':'adam',
@@ -194,14 +236,18 @@ def train():
         tf.keras.callbacks.EarlyStopping(patience=10, restore_best_weights=True)
     ]
 
+    # Instanciation du générateur
+    train_generator = CustomMultimodalGenerator(config)
+    train_generator[0]
+    #print(f"steps_per_epoch={len(train_generator),}")
     # 4. Lancement de l'instruction
     print("Début de l'entraînement multimodal...")
-    history = model.fit(
-         x=train_generator,                        # données d'entrées
-         validation_data=validation_generator,   #
-         epochs=100,   # Le nombre total de fois où le modèle va parcourir l'intégralité du jeu de données d'entraînement.
-         callbacks=callbacks
-    )
+    #history = model.fit(
+    #     x=train_generator,                        # données d'entrées
+    #     validation_data=validation_generator,   #
+    #     epochs=100,   # Le nombre total de fois où le modèle va parcourir l'intégralité du jeu de données d'entraînement.
+    #     callbacks=callbacks
+    #)
     
     print("Modèle prêt pour la reconstruction 3D.")
 
@@ -215,11 +261,11 @@ def dvl():
 
 
     #config={
-    #    'root_dir':'simul_save',
+    #    'DATA_ROOT':'simul_save',
     #    'exafs':["xmu_Au.dat", "xmu_Co.dat", "xmu_Pt.dat"]
     #}
     config={
-        'root_dir':'doc/tutorials',
+        'DATA_ROOT':'doc/tutorials',
         'exafs':["k2chi(k)_Au.dat", "k2chi(k)_Co.dat", "k2chi(k)_Pt.dat"],
         'N_POINTS_EXAFS': 200 # Nombre de points par spectre
     }
