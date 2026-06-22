@@ -8,6 +8,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+#import os ; os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
 import tensorflow as tf
 from tensorflow.keras import layers, models,callbacks
 
@@ -186,6 +188,9 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
         self.n_points_exafs = config['N_POINTS_EXAFS']
         self.n_especes = config['N_ESPECES']
         self.n_z_plans = config['N_PLANS']
+
+
+        self.indexes = numpy.arange(len(self.data_ids))
     def __getitem__(self,index):
         """ Génère un lot (batch) de données.
         En Python, les méthodes entourées de doubles underscores (appelées méthodes magiques ou dunder methods)
@@ -203,6 +208,7 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
         start_idx = index * self.batch_size
         end_idx   = (index + 1) * self.batch_size
         print(f"{start_idx} {end_idx}")
+        batch_indexes = self.indexes[start_idx:end_idx]
         # 4. Renvoi du couple strict exigé par model.fit()
         #return [batch_tem, batch_exafs], batch_volume_target
 
