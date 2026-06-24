@@ -155,11 +155,16 @@
 \cprotect\chapter{Le modèle \verb+ATOMOD+}
 La finalité de l'application \verb+ATOMOD+ est de reconstruire une structure 3D à partir d'informations projetées 2D (TEM) et intégrées statistiquement (EXAFS global) à une carte atomique 3D discrète d'un alliage à haute entropie (HEA), où le désordre chimique est maximal.
 
-Dans ce contexte, nous avons développé une approche basée sur une architecture de type \verb+UNet+, modifiée avec du conditionnement "FiLM".
+Dans ce contexte, nous avons développé une approche basée sur une architecture de type \verb+UNet+, modifiée avec du conditionnement "FiLM" (Feature-wise Linear Modulation).
 C'est une approche basée sur une architecture de type \verb+UNet+ 2D conditionnée par un Encodeur EXAFS. Elle permet que l'information spectroscopique guide la reconstruction d'image tout au long du processus. L'image TEM donne les positions ($x$, $y$), l'EXAFS donne les distances locales pour la dimension $z$ et la chimie.
 Le principe de fonctionnement est qu'à chaque étage de \verb+UNet+, on injecte l'information EXAFS, qui va influencer ou "moduler" la manière dont l'image est traitée pendant le processus de calcul. Le spectre peut forcer le UNet à activer certains canaux de sortie (certains plans atomiques $z$) qu'il aurait ignorés autrement.
 
+À chaque étage de l'encodeur et du décodeur du UNet, on utilise le vecteur latent EXAFS pour générer des paramètres $\gamma$ et $\beta$ qui vont normaliser et décaler les cartes de caractéristiques (feature maps) de l'image.
+\begin{equation}
+\mathrm{FiLM}(F) = \gamma(Latent\_EXAFS) \cdot F + \beta(Latent\_EXAFS)
+\end{equation}
 
+\vspace{.25cm}
 \begin{tikzpicture}[node distance=1.5cm,
 	every node/.style={fill=white, font=\sffamily}, align=center]
 	% Specification of nodes (position, etc.)
@@ -181,7 +186,94 @@ Le principe de fonctionnement est qu'à chaque étage de \verb+UNet+, on injecte
 	\draw[->]             (modelCompil) -- (modelFit);	
  \end{tikzpicture}
 
-\cprotect\section{Arguments principaux de la méthode \verb+model.fit+}
+
+
+\cprotect\section{Le modèle \verb+build_atomod_v2+}
+
+L'architecture du modèle est définie dans la fonction \verb+build_atomod_v2()+.
+
+
+\begin{lstlisting}[language=python]
+model = build_atomod_v2(config)    # instanciation du modèle
+\end{lstlisting}
+L'appel \verb+model = build_atomod_v2(config)+ crée le modèle en mémoire, alloue les matrices pour les poids des neurones, et leur donne des valeurs aléatoires initiales. C'est l'instanciation du modèle, c'est à dire la création concrète de l'objet informatique dans la mémoire de l'ordinateur, à partir de son plan théorique (sa classe ou son architecture).
+
+Ensuite, une fois le modèle instancié, on peut
+\begin{itemize}
+	\item l'entraîner (\verb+model.fit()+),
+	\item voir son résumé (\verb+model.summary()+),
+	\item faire des prédictions (\verb+model.predict()+).
+\end{itemize}
+
+Après avoir instancié le modèle, on le compile (méthode \verb+model.compile()+) c'est à dire que l'on configure la stratégie que le réseau va utiliser pour apprendre.
+Alors que l'instanciation consiste à créer le corps du réseau de neurones en mémoire, la compilation consiste à lui donner son "cerveau" et ses règles de calcul avant qu'il ne commence l'entraînement.
+Lors de la compilation, on définit les trois piliers essentiels de l'apprentissage du réseau :
+\begin{itemize}
+	\item L'Optimiseur (\verb+optimizer+) c'est à dire comment vont se faire les ajustement du modèle lors de l'apprentissage. C'est l'algorithme mathématique qui va mettre à jour les poids des neurones en fonction des erreurs commises. L'optimiseur décide de combien et dans quelle direction modifier les curseurs du réseau pour qu'il devienne plus précis au lot suivant. Il existe plusieurs optimiseurs comme \verb+adam+ ou \verb+sgd+.
+	\item La Fonction de Perte (\verb+loss+) qui définit la formule mathématique qui mesure l'écart entre ce que le modèle a prédit et la vérité terrain. Elle donne une note de mauvaise performance. Plus la loss est élevée, plus le modèle s'est trompé. Le but du réseau sera de minimiser cette valeur.
+	\item Les Métriques (\verb+metrics+) qui sont les indicateurs à suivre pendant l'entraînement pour juger si le modèle progresse. A la différence de la \verb+loss+ qui sert au calcul pur du GPU, les métriques rassurer ou alerter sur les performances réelles du modèle. Par exemple, \verb+accuracy+ indique le taux de bonne classification des pixels.
+\end{itemize}
+\begin{lstlisting}[language=python]
+# Compilation du modèle. 
+# étape obligatoire AVANT de pouvoir lancer le model.fit()
+model.compile(
+	optimizer=config['optimizer'],   # Algorithme d'apprentissage
+	loss=combined_loss,              # règle de physique/segmentation
+	metrics=['accuracy']             # Ce que l'on veut surveiller
+)
+\end{lstlisting}
+
+Une fois compilé, \verb+TensorFlow+ fige la structure mathématique du réseau et génère les graphiques de calcul optimisés (les gradients). 
+L'étape suivante consiste à fournir au modèle les données nécessaires à l'entraînement (images TEM, spectres EXAFS, etc.).
+
+
+\cprotect\section{La méthode \verb+model.fit+}
+
+\cprotect\subsection{Fonction de la méthode \verb+model.fit+}
+
+Dans l'écosystème de TensorFlow/Keras, l'instruction \verb+model.fit()+ est la commande qui lance \\ l'entraînement (l'instruction) du réseau de neurones.
+
+Avec l'exécution de \verb+model.fit(train_generator, epochs=50)+, le réseau entre dans une boucle itérative qui reproduit le mécanisme de l'apprentissage humain par essai-erreur :
+\vspace{.25cm}
+\begin{figure}[H]
+\begin{tikzpicture}[node distance=1.5cm,every node/.style={fill=white, font=\sffamily}, align=center]
+	% Specification of nodes (position, etc.)
+	\node (propagation)         [algorithmStarts]    {
+		\begin{minipage}{5cm}
+		1. Propagation vers l'avant\\ Le modèle reçoit une image TEM et les spectres EXAFS. Il produit une reconstruction 3D.
+		\end{minipage}
+		};
+	\node (erreur)         [algorithmStarts,right of=propagation,xshift=5cm]   {
+	\begin{minipage}{5cm}
+		2. Calcul de l'erreur. \\ Comparaison du volume 3D prédit avec la vérité de terrain.
+	\end{minipage}
+	};
+	\node (retropropagation)         [algorithmStarts,right of=erreur,xshift=5cm]                              {
+		\begin{minipage}{5cm}
+			3. Propagation vers l'arrière\\ Ajustement des poids : l'optimiseur corrige les filtres pour réduite l'erreur.
+		\end{minipage}
+	};
+	\coordinate (n1) at   ([yshift=-2cm]retropropagation) ;
+	\coordinate (n2) at   ([yshift=-2cm]propagation) ;
+	
+	\draw[->,thick]    (propagation) -- (erreur);
+	\draw[->,thick]    (erreur) --  (retropropagation);
+	\draw[->,thick]    (retropropagation) -- (n1) -- (n2) -- (propagation);
+\end{tikzpicture}
+\end{figure}
+Ce cycle (1 $\rightarrow$ 2 $\rightarrow$ 3) est répété pour chaque lot (\verb+batch+) de nanoparticules, et ce sur l'ensemble des données, autant de fois que le nombre d'époques spécifié (\verb+epochs=50+).
+
+La méthode \verb+model.fit()+ gère :
+\begin{itemize}
+	\item La logistique des données car c'est \verb+model.fit()+ qui appelle la méthode \verb+__getitem__+ de\\ \verb+train_generator+ à chaque étape pour charger les données, et qui s'assure qu'elles soient envoyées au processeur (CPU ou GPU) pour le calcul.
+	\item Le suivi en temps réel : À chaque itération, \verb+model.fit()+ affiche la valeur actuelle de la loss et de l'accuracy.
+	\item L'évaluation de validation : À la fin de chaque époque, il bascule automatiquement sur  \verb+val_generator+ pour mesurer la capacité du modèle à généraliser sur de nouvelles nanoparticules non considérées pour l'instruction.
+	\item Le pilotage des \verb+Callbacks+ : C'est lui qui orchestre les outils de contrôle (par exemple, appel au \verb+ModelCheckpoint+ pour sauvegarder le modèle si le score est bon, et envoie l'image au \\ \verb+ImageSamplingCallback+ pour générer une image png de contrôle).
+\end{itemize}
+
+\verb+history=model.fit(...)+ renvoie un objet \verb+history+ contenant l'historique complet des valeurs de pertes et de métriques pour chaque époque. On peut l'utiliser juste après pour tracer des courbes et vérifier graphiquement si le modèle a bien convergé ou s'il a sur-appris.
+
+\cprotect\subsection{Arguments principaux de la méthode \verb+model.fit+}
 
 \begin{enumerate}
 	\item Les arguments de Données (Les entrées)

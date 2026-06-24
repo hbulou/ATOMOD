@@ -1,4 +1,6 @@
+
 import numpy
+from PIL import Image
 import logging
 import matplotlib.pyplot as plt
 # Configuration du logging
@@ -9,6 +11,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 #import os ; os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+from pathlib import Path
+
 
 import tensorflow as tf
 from tensorflow.keras import layers, models,callbacks
@@ -41,6 +46,7 @@ def build_exafs_k_space_encoder(input_shape_exafs, latent_dim=128):
     latent_vector = layers.Dense(latent_dim, activation='relu', name="EXAFS_latent_features")(x)
     
     return models.Model(inputs, latent_vector, name="EXAFS_k_Encoder")
+
 def resampling(filename,xmin=2.0,xmax=8.0,N=100):
     # 2. Chargement du fichier
     x_original, y_original = numpy.loadtxt(filename, comments='#', usecols=(0,1),unpack=True)
@@ -56,7 +62,7 @@ def resampling(filename,xmin=2.0,xmax=8.0,N=100):
     # 4. Si le test passe, le script continue en toute sécurité
     x_nouveau = numpy.linspace(xmin, xmax, N)
     y_nouveau = numpy.interp(x_nouveau, x_original, y_original)
-    return x_nouveau,y_nouveau
+    return numpy.array([x_nouveau,y_nouveau]).T
     
 
 
@@ -118,13 +124,18 @@ def film_block(feature_map, conditioner):
 
 def build_atomod_v2(config):
     # --- BRANCHE EXAFS ---
-    exafs_input = layers.Input(shape=(config['N_POINTS_EXAFS'],config['N_ESPECES']), name="EXAFS_Input")
+    exafs_input = layers.Input(shape=(config['exafs']['N_POINTS_EXAFS'],
+                                      len(config['NP']['structure']['composition'])),
+                               name="EXAFS_Input")
     x_ex = layers.Conv1D(64, 3, activation='relu')(exafs_input)
     x_ex = layers.GlobalAveragePooling1D()(x_ex)
     latent_exafs = layers.Dense(128, activation='relu')(x_ex)
 
     # --- BRANCHE TEM (UNet) ---
-    tem_input = layers.Input(shape=(config['H'],config['W'],1), name="TEM_Input")
+    tem_input = layers.Input(shape=(config['image']['H'],
+                                    config['image']['W'],
+                                    1),
+                             name="TEM_Input")
     
     # Encoder
     c1 = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(tem_input)
@@ -173,7 +184,7 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
     Générateur de données à la volée pour le modèle multimodal ATOMOD.
     Fournit ([batch_tem, batch_exafs], batch_volume_target) à chaque itération.
     """
-    def __init__(self,config):
+    def __init__(self,config,shuffle=True,global_max_abs=None):
         """
         Args:
             data_ids (list): Liste des identifiants uniques des nanoparticules (ex: ['part_001', 'part_002', ...])
@@ -182,15 +193,43 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
             global_max_abs (numpy.ndarray): Vecteur de taille (N_ESPECES,) pour normaliser l'EXAFS.
             shuffle (bool): Mélanger les données à la fin de chaque époque.
         """
-        self.data_root = config['DATA_ROOT']
-        self.batch_size = config['BATCH_SIZE']
-        self.img_shape = (config['W'],config['H'])
-        self.n_points_exafs = config['N_POINTS_EXAFS']
-        self.n_especes = config['N_ESPECES']
-        self.n_z_plans = config['N_PLANS']
 
-
+        #logger.info(f"{config['root_dir']}")
+        self.config=config
+        self.batch_size = config['train']['BATCH_SIZE']
+        self.data_ids=[]
+        self.shuffle=shuffle
+        sous_dossiers = [d for d in Path(config['root_dir']).iterdir() if d.is_dir()]
+        for dossier in sous_dossiers:
+            self.data_ids.append(dossier.parts[-1])
         self.indexes = numpy.arange(len(self.data_ids))
+        if self.shuffle:
+            numpy.random.shuffle(self.indexes)
+        self.img_shape = (config['image']['W'],config['image']['H'])
+        self.n_points_exafs = config['exafs']['N_POINTS_EXAFS']
+        self.n_especes = len(config['NP']['structure']['composition'])
+        print(self.data_ids)
+        print(self.indexes)
+        tab=[]
+        for doss in sous_dossiers:
+            print(doss)
+            dossier_proba =  doss / config['train']['prob_maps_img_dir']
+            for elt in config['NP']['structure']['composition']:
+                fichiers = [f for f in dossier_proba.iterdir() if f.is_file() and elt in f.name]
+                tab.append(len(fichiers))
+        tous_identiques = len(set(tab)) <= 1
+        
+        if tous_identiques:  # Affiche : True
+            self.n_z_plans=tab[0]
+
+
+        # Si aucun max absolu n'est fourni, on initialise à 1.0 (pas de normalisation)
+        if global_max_abs is None:
+            self.global_max_abs = numpy.ones(self.n_especes, dtype=numpy.float32)
+        else:
+            self.global_max_abs = numpy.array(global_max_abs, dtype=numpy.float32)
+
+
     def __getitem__(self,index):
         """ Génère un lot (batch) de données.
         En Python, les méthodes entourées de doubles underscores (appelées méthodes magiques ou dunder methods)
@@ -206,30 +245,113 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
         
         # 1. Sélectionner les indices du lot courant
         start_idx = index * self.batch_size
-        end_idx   = (index + 1) * self.batch_size
-        print(f"{start_idx} {end_idx}")
+        end_idx = min((index + 1) * self.batch_size, len(self.data_ids))
         batch_indexes = self.indexes[start_idx:end_idx]
-        # 4. Renvoi du couple strict exigé par model.fit()
-        #return [batch_tem, batch_exafs], batch_volume_target
+        
+        # Ajustement au cas où le dernier batch est plus petit que BATCH_SIZE
+        current_batch_size = len(batch_indexes)
+        
 
-def train():
-    # --- Configuration ---
-    config={
-        'DATA_ROOT':'doc/tutorials',
-        'exafs':["k2chi(k)_Au.dat", "k2chi(k)_Co.dat", "k2chi(k)_Pt.dat"],
-        'NPARTICULES':1,         # nombre de particules utilisées pour l'entrainement
-        'BATCH_SIZE':4,          # Taille des lots 
-        'N_POINTS_EXAFS': 200,   # Nombre de points par spectre
-        'N_ESPECES' : 3,         # CoCrFeMnNi par exemple
-        'N_PLANS' : 10,          # Nombre de plans en Z
-        'H':128,
-        'W':128,
-        'optimizer':'adam',
-    }
-    config['N_CHANNELS_OUT']= config['N_ESPECES']*config['N_PLANS']
-    # 1. Instanciation du modèle
-    model = build_atomod_v2(config)
-    model.compile(optimizer=config['optimizer'], loss=combined_loss, metrics=['accuracy'])
+        logger.info(f"start_idx={start_idx} end_idx={end_idx}")
+        # 2. Initialiser les tableaux NumPy (qui seront envoyés au GPU)
+        batch_tem = numpy.zeros((current_batch_size, self.img_shape[0], self.img_shape[1], 1), dtype=numpy.float32)
+        batch_exafs = numpy.zeros((current_batch_size, self.n_points_exafs, self.n_especes), dtype=numpy.float32)
+        batch_volume_target = numpy.zeros((current_batch_size, self.img_shape[0], self.img_shape[1], self.n_especes * self.n_z_plans), dtype=numpy.float32)
+        # 3. Remplir le lot particule par particule
+        for i, idx in enumerate(batch_indexes):
+            part_id = self.data_ids[idx]
+            
+            # --- A. Chargement et normalisation de l'image TEM ---
+            dossier_tem =  Path(self.config['root_dir']) / part_id / self.config['train']['TEM_img_dir']
+            chemin_image = dossier_tem / "TEM.png"
+            if chemin_image.exists():
+                print(f"✅ L'image {chemin_image} existe bien ! Lecture en cours...")
+                
+                #img = plt.imread(chemin_image)
+                #hauteur = img.shape[0]
+                #largeur = img.shape[1]
+                
+                img=Image.open(chemin_image)
+                largeur, hauteur = img.size
+                print(img.mode)
+                print(f"📷 Image analysée : {chemin_image.name}")
+                print(f"📏 Largeur : {largeur} pixels")
+                print(f"📐 Hauteur : {hauteur} pixels")
+                img_redimensionnee = img.resize((self.config['image']['W'],self.config['image']['H']),
+                                                Image.Resampling.LANCZOS)
+                print(type(img_redimensionnee))
+                tem_img = (img_redimensionnee - numpy.min(img_redimensionnee)) / (numpy.max(img_redimensionnee) - numpy.min(img_redimensionnee) + 1e-7)
+                print(type(tem_img),tem_img.shape)
+                img_gris = 0.299 * tem_img[:, :, 0] + 0.587 * tem_img[:, :, 1] + 0.114 * tem_img[:, :, 2]
+                batch_tem[i, ..., 0] = img_gris
+                #plt.imshow(img_gris,cmap='gray' )
+                #plt.show()
+            else:
+                print(f"❌ Erreur : Impossible de trouver l'image à l'emplacement :")
+                print(f"   {chemin_image.resolve()}")  # .resolve() affiche le chemin absolu complet pour aider à déboguer
+            # --- B. Chargement et normalisation des spectres EXAFS ---
+            exafs_matrix = numpy.zeros((self.n_points_exafs, self.n_especes), dtype=numpy.float32)
+            dossier_exafs =  Path(self.config['root_dir']) / part_id / self.config['train']['EXAFS_dir']
+            fichiers = [f for f in dossier_exafs.iterdir() if f.is_file() and "k2" in f.name.lower()]
+            #print(f"fichiers={fichiers}")
+            data_exafs={}
+            #print(self.n_points_exafs, self.n_especes)
+            for f in fichiers:
+                data_exafs[f]=resampling(f,xmin=2.0,xmax=8.0,N=self.config['exafs']['N_POINTS_EXAFS'])
+                print(f"data_exafs.shape={data_exafs[f].shape}")
+
+            for ielt,elt in enumerate(self.config['NP']['structure']['composition']):
+                chemin_trouve = next((p for p in fichiers if elt in p.name), None)
+                #print(elt)
+                #plt.plot(data_exafs[chemin_trouve][0],data_exafs[chemin_trouve][1],label=elt)
+                #plt.show()
+                #print(data_exafs[chemin_trouve][1])
+                #data = numpy.loadtxt(chemin_trouve, skiprows=1) 
+                #print(f"type(data)={type(data)},data.shape={data.shape}")
+                #ff=resampling(chemin_trouve,xmin=2.0,xmax=8.0,N=self.config['exafs']['N_POINTS_EXAFS'])
+                #print(f"type(ff)={type(ff)},ff.shape={ff.shape}")
+                #print(type(data_exafs[chemin_trouve][1]),data_exafs[chemin_trouve][1].shape)
+                #print(type(exafs_matrix),exafs_matrix.shape)
+                exafs_matrix[:, ielt] = data_exafs[chemin_trouve][:,1]
+
+                #exafs_matrix[:, ielt] = data[:,1]
+            # Normalisation Max-Abs indépendante pour chaque colonne (Broadcasting)
+            print(f"exafs_matrix.shape={exafs_matrix.shape}")
+            batch_exafs[i] = numpy.clip(exafs_matrix / self.global_max_abs, -1.0, 1.0)
+            print(f"batch_exafs.shape={batch_exafs.shape}")
+            print(batch_exafs[i][:][0].shape)
+
+            for ielt in range(self.n_especes):
+                plt.plot(batch_exafs[i,:,ielt])
+            plt.show()
+            #for ielt in range(self.n_especes):
+            #    plt.plot(batch_exafs[i][ielt])
+            #plt.show()
+
+            # --- C. Chargement et concaténation des volumes 3D cibles ---
+            # On doit fusionner les plans Z de toutes les espèces dans la dernière dimension
+            dossier_proba =  Path(self.config['root_dir']) / part_id / self.config['train']['prob_maps_img_dir']
+            for elt in self.config['NP']['structure']['composition']:
+                for z in range(self.n_z_plans):
+                    name=f"img_0000_{elt}_{z:04d}"
+                    fichier = [f for f in dossier_proba.iterdir() if f.is_file() and name in f.name]
+                    print(fichier)
+
+            
+            return [batch_tem, batch_exafs],  batch_volume_target
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+def train(config):
+
+    train_generator = CustomMultimodalGenerator(config)
+    logger.info(10*"-")
+    train_generator[1]
+
+
+    exit()
+    model = build_atomod_v2(config)    # instanciation du modèle
+    model.compile(optimizer=config['optimizer'],
+                  loss=combined_loss,
+                  metrics=['accuracy'])
 
 
     # 2. Préparation des données (Simulation de générateurs)
@@ -243,8 +365,10 @@ def train():
     ]
 
     # Instanciation du générateur
-    train_generator = CustomMultimodalGenerator(config)
-    train_generator[0]
+
+
+
+
     #print(f"steps_per_epoch={len(train_generator),}")
     # 4. Lancement de l'instruction
     print("Début de l'entraînement multimodal...")
