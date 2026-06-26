@@ -78,7 +78,7 @@ def main():
             'prob_maps_img_dir': "train/prob_maps",  # répertoire de stockage des images TEM
             'nfo_dir'          : "train/nfo",        # répertoire des infos sur la gen. in silico
             'optimizer'        : "adam",
-            'BATCH_SIZE'       :  5,
+            'BATCH_SIZE'       :  4,
         },
         'NP':{
             'status':status['NP'],
@@ -101,17 +101,15 @@ def main():
             'semiangle cutoff':20,
             'defocus':200,
             'cell scale':1.1
-            },
+        },
         'atomic presence probability map':{
+            'status':status['atomic probability map'],
             'ninter':{ # nombre d'intervalles entre deux positions atomiques
                 'x':20,
                 'y':20,
                 'z':2
             },
             'sigma': .6  # en Å, largeur de la gaussienne ~ rayon atomique ou un peu moins
-        },
-        'atomic probability map':{
-            'status':status['atomic probability map']
         },
         'image':{
             'xmin':0.0,
@@ -154,7 +152,7 @@ def main():
             }
         }
     }
-
+    
 
     
     if gen_data:

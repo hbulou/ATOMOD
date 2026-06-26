@@ -18,10 +18,11 @@ from pathlib import Path
 import tensorflow as tf
 from tensorflow.keras import layers, models,callbacks
 
+##########################################################################################################################
 def build_exafs_k_space_encoder(input_shape_exafs, latent_dim=128):
     """
     Encodeur optimisé pour le signal EXAFS dans l'espace k.
-    input_shape_exafs : (N_points, 3) - ex: (200, 3) pour 3 espèces chimiques.
+    input_shape_exafs : (N_points, N_especes) - ex: (200, 3) pour 3 spectres de 200 pts pour trois espèces chimiques.
     """
     inputs = layers.Input(shape=input_shape_exafs, name="EXAFS_k_input")
     
@@ -47,10 +48,57 @@ def build_exafs_k_space_encoder(input_shape_exafs, latent_dim=128):
     
     return models.Model(inputs, latent_vector, name="EXAFS_k_Encoder")
 
+##########################################################################################################################
 def resampling(filename,xmin=2.0,xmax=8.0,N=100):
-    # 2. Chargement du fichier
+    """
+    Méthode pour rééchantilloner des données contenues dans le fichier filename, en N points régulièrement
+    répartis entre [xmin,xmax].
+    
+    * Les 4 étapes de l'algorithme
+      ÉTAPE 1 : Chargement
+    ────────────────────
+    Charge un fichier texte avec 2 colonnes (x, y)
+    Les lignes commençant par '#' sont ignorées (commentaires)
+    
+    ÉTAPE 2 : Validation
+    ─────────────────────
+    Vérifie que [xmin, xmax] est dans les limites du fichier
+    Si non → lève une erreur (ValueError)
+    
+    ÉTAPE 3 : Rééchantillonnage
+    ────────────────────────────
+    Crée N points x uniformément espacés entre xmin et xmax
+    Interpole les valeurs y correspondantes
+    
+    ÉTAPE 4 : Retour
+    ────────────────
+    Retourne un array (N, 2) avec les données rééchantillonnées
+    
+    Args:
+        filename (str): Chemin du fichier de données
+        xmin (float): Valeur x minimale souhaitée (défaut: 2.0)
+        xmax (float): Valeur x maximale souhaitée (défaut: 8.0)
+        N (int): Nombre de points dans le nouvel échantillon (défaut: 100)
+    
+    Returns:
+        numpy.ndarray: Array de shape (N, 2) avec [x_nouveau, y_nouveau]
+    
+    Raises:
+        ValueError: Si xmin < min(x_original) ou xmax > max(x_original)
+    
+    Example: Charger et rééchantillonner un spectre XAS
+        >>> data = resampling(
+                      filename="spectrum.txt",
+                      xmin=4.5,           # Énérgie min (keV)
+                      xmax=5.5,           # Énérgie max (keV)
+                      N=500)              # 500 points réguliers
+        >>> print(data.shape)  # Résultat : array de shape (500, 2) contenant exactement 500 points espacés uniformément
+
+    
+    """
+    # Chargement du fichier
     x_original, y_original = numpy.loadtxt(filename, comments='#', usecols=(0,1),unpack=True)
-    # 3. LE TEST DE SÉCURITÉ
+    # Test de sécurité
     # On vérifie si xmin est trop petit OU si xmax est trop grand
     if xmin < x_original.min() or xmax > x_original.max():
         raise ValueError(
@@ -59,13 +107,12 @@ def resampling(filename,xmin=2.0,xmax=8.0,N=100):
             f"👉 Plage réelle du fichier : [{x_original.min():.3f}, {x_original.max():.3f}]"
     )
 
-    # 4. Si le test passe, le script continue en toute sécurité
+    # Si le test passe, le script continue en toute sécurité
     x_nouveau = numpy.linspace(xmin, xmax, N)
     y_nouveau = numpy.interp(x_nouveau, x_original, y_original)
     return numpy.array([x_nouveau,y_nouveau]).T
-    
 
-
+##########################################################################################################################
 def load_exafs_inputs(config):
     """
     file_paths: list de 3 chemins vers les fichiers .dat [A.dat, B.dat, C.dat]
@@ -108,6 +155,7 @@ def load_exafs_inputs(config):
     
     return exafs_matrix
 
+#################################################################################################################
 def film_block(feature_map, conditioner):
     """Injection de l'information EXAFS dans l'image."""
     # Le conditionneur est un vecteur latent issu de l'EXAFS
@@ -122,6 +170,7 @@ def film_block(feature_map, conditioner):
 
 
 
+#################################################################################################################
 def build_atomod_v2(config):
     # --- BRANCHE EXAFS ---
     exafs_input = layers.Input(shape=(config['exafs']['N_POINTS_EXAFS'],
@@ -160,15 +209,17 @@ def build_atomod_v2(config):
     c4 = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(u2)
 
     # Sortie (Volume de probabilités : Espèces x Plans)
-    output = layers.Conv2D(config['N_CHANNELS_OUT'], (1, 1), activation='sigmoid', name="Output")(c4)
+    output = layers.Conv2D(config['train']['N_CHANNELS_OUT'], (1, 1), activation='sigmoid', name="Output")(c4)
 
     return models.Model(inputs=[tem_input, exafs_input], outputs=output)
 
+##########################################################################################################################
 def dice_loss(y_true, y_pred):
     numerator = 2 * tf.reduce_sum(y_true * y_pred, axis=(1, 2, 3))
     denominator = tf.reduce_sum(y_true + y_pred, axis=(1, 2, 3))
     return 1 - tf.reduce_mean(numerator / (denominator + 1e-7))
 
+##########################################################################################################################
 def composition_constraint(y_true, y_pred):
     """Pénalise si la proportion d'atomes prédits s'écarte de la vérité terrain."""
     # Somme des probas par canal (espèce_plan)
@@ -176,15 +227,17 @@ def composition_constraint(y_true, y_pred):
     total_pred = tf.reduce_sum(y_pred, axis=(1, 2))
     return tf.reduce_mean(tf.square(total_true - total_pred))
 
+#################################################################################################################
 def combined_loss(y_true, y_pred):
     return dice_loss(y_true, y_pred) + 0.1 * composition_constraint(y_true, y_pred)
 
+#################################################################################################################
 class CustomMultimodalGenerator(tf.keras.utils.Sequence):
     """
     Générateur de données à la volée pour le modèle multimodal ATOMOD.
     Fournit ([batch_tem, batch_exafs], batch_volume_target) à chaque itération.
     """
-    def __init__(self,config,shuffle=True,global_max_abs=None):
+    def __init__(self,config,data_ids,shuffle=True,global_max_abs=None):
         """
         Args:
             data_ids (list): Liste des identifiants uniques des nanoparticules (ex: ['part_001', 'part_002', ...])
@@ -197,31 +250,40 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
         #logger.info(f"{config['root_dir']}")
         self.config=config
         self.batch_size = config['train']['BATCH_SIZE']
-        self.data_ids=[]
+        self.data_ids=data_ids
         self.shuffle=shuffle
-        sous_dossiers = [d for d in Path(config['root_dir']).iterdir() if d.is_dir()]
-        for dossier in sous_dossiers:
-            self.data_ids.append(dossier.parts[-1])
         self.indexes = numpy.arange(len(self.data_ids))
         if self.shuffle:
             numpy.random.shuffle(self.indexes)
+
+
+        # on récupère la liste des seeds ayant servis à générer les NP in silico
+        #sous_dossiers = [d for d in Path(config['root_dir']).iterdir() if d.is_dir()]
+        #for dossier in sous_dossiers:
+        #    self.data_ids.append(dossier.parts[-1])
+
+
         self.img_shape = (config['image']['W'],config['image']['H'])
         self.n_points_exafs = config['exafs']['N_POINTS_EXAFS']
         self.n_especes = len(config['NP']['structure']['composition'])
         print(self.data_ids)
         print(self.indexes)
-        tab=[]
-        for doss in sous_dossiers:
-            print(doss)
-            dossier_proba =  doss / config['train']['prob_maps_img_dir']
-            for elt in config['NP']['structure']['composition']:
-                fichiers = [f for f in dossier_proba.iterdir() if f.is_file() and elt in f.name]
-                tab.append(len(fichiers))
-        tous_identiques = len(set(tab)) <= 1
-        
-        if tous_identiques:  # Affiche : True
-            self.n_z_plans=tab[0]
 
+        #tab=[]
+        #for doss in sous_dossiers:
+        #    print(doss)
+        #    dossier_proba =  doss / config['train']['prob_maps_img_dir']
+        #    for elt in config['NP']['structure']['composition']:
+        #        fichiers = [f for f in dossier_proba.iterdir() if f.is_file() and elt in f.name]
+        #        tab.append(len(fichiers))
+        #tous_identiques = len(set(tab)) <= 1
+        
+        #if tous_identiques:  # Affiche : True
+        #    self.n_z_plans=tab[0]
+        self.n_z_plans=config['atomic presence probability map']['N_Z_PLANS']
+        #config['NP']['structure']['N_ESPECES']=self.n_especes
+        #config['atomic presence probability map']['N_Z_PLANS']=self.n_z_plans
+        #config['train']['N_CHANNELS_OUT']=config['NP']['structure']['N_ESPECES']*config['atomic presence probability map']['N_Z_PLANS']
 
         # Si aucun max absolu n'est fourni, on initialise à 1.0 (pas de normalisation)
         if global_max_abs is None:
@@ -283,6 +345,8 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
                 tem_img = (img_redimensionnee - numpy.min(img_redimensionnee)) / (numpy.max(img_redimensionnee) - numpy.min(img_redimensionnee) + 1e-7)
                 print(type(tem_img),tem_img.shape)
                 img_gris = 0.299 * tem_img[:, :, 0] + 0.587 * tem_img[:, :, 1] + 0.114 * tem_img[:, :, 2]
+
+                
                 batch_tem[i, ..., 0] = img_gris
                 #plt.imshow(img_gris,cmap='gray' )
                 #plt.show()
@@ -321,9 +385,9 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
             print(f"batch_exafs.shape={batch_exafs.shape}")
             print(batch_exafs[i][:][0].shape)
 
-            for ielt in range(self.n_especes):
-                plt.plot(batch_exafs[i,:,ielt])
-            plt.show()
+            #for ielt in range(self.n_especes):
+            #    plt.plot(batch_exafs[i,:,ielt])
+            #plt.show()
             #for ielt in range(self.n_especes):
             #    plt.plot(batch_exafs[i][ielt])
             #plt.show()
@@ -331,25 +395,74 @@ class CustomMultimodalGenerator(tf.keras.utils.Sequence):
             # --- C. Chargement et concaténation des volumes 3D cibles ---
             # On doit fusionner les plans Z de toutes les espèces dans la dernière dimension
             dossier_proba =  Path(self.config['root_dir']) / part_id / self.config['train']['prob_maps_img_dir']
+            channels_list = []
             for elt in self.config['NP']['structure']['composition']:
                 for z in range(self.n_z_plans):
                     name=f"img_0000_{elt}_{z:04d}"
                     fichier = [f for f in dossier_proba.iterdir() if f.is_file() and name in f.name]
-                    print(fichier)
+                    image_path = fichier[0]
+                    if image_path.exists():
+                        channels_list.append(self.image_reading_and_processing(image_path))
+            print(type(channels_list))
+            print(numpy.shape(channels_list))
+            tab = numpy.array(channels_list)
+            batch_volume_target[i]=numpy.moveaxis(tab, 0, -1)
+            print(numpy.shape(batch_volume_target[i]))
 
-            
-            return [batch_tem, batch_exafs],  batch_volume_target
+        return [batch_tem, batch_exafs],  batch_volume_target
+
+    def image_reading_and_processing(self,img_path):
+        print(f"✅ L'image {img_path} existe bien ! Lecture en cours...")
+        
+        #img = plt.imread(img_path)
+        #hauteur = img.shape[0]
+        #largeur = img.shape[1]
+        
+        img=Image.open(img_path)
+        largeur, hauteur = img.size
+        print(img.mode)
+        print(f"📷 Image analysée : {img_path.name}")
+        print(f"📏 Largeur : {largeur} pixels")
+        print(f"📐 Hauteur : {hauteur} pixels")
+        img_redimensionnee = img.resize((self.config['image']['W'],
+                                         self.config['image']['H']),
+                                        Image.Resampling.LANCZOS)
+        print(type(img_redimensionnee))
+        new_img = (img_redimensionnee - numpy.min(img_redimensionnee)) / (numpy.max(img_redimensionnee) - numpy.min(img_redimensionnee) + 1e-7)
+        print(type(new_img),new_img.shape)
+        img_grey = 0.299 * new_img[:, :, 0] + 0.587 * new_img[:, :, 1] + 0.114 * new_img[:, :, 2]
+        print(type(img_grey),img_grey.shape)
+        return img_grey
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 def train(config):
 
-    train_generator = CustomMultimodalGenerator(config)
+    data_ids=[]
+    list_seeds_dir = [d for d in Path(config['root_dir']).iterdir() if d.is_dir()]
+    for d in list_seeds_dir:
+        data_ids.append(d.parts[-1])
+    print(data_ids)
+
+    list_proba_map=[]
+    for d in list_seeds_dir:
+        proba_dir =  d / config['train']['prob_maps_img_dir']
+        for elt in config['NP']['structure']['composition']:    
+            proba_map = [f for f in proba_dir.iterdir() if f.is_file() and elt in f.name]
+            list_proba_map.append(len(proba_map)) # comptage des maps de proba pour chaque elt
+        same_number_of_maps = len(set(list_proba_map)) <= 1
+        
+    if same_number_of_maps:  # Affiche : True
+        config['atomic presence probability map']['N_Z_PLANS']=list_proba_map[0]
+
+    config['NP']['structure']['N_ESPECES']=len(config['NP']['structure']['composition'])
+    config['train']['N_CHANNELS_OUT']=config['NP']['structure']['N_ESPECES']*config['atomic presence probability map']['N_Z_PLANS']
+    
+    train_generator = CustomMultimodalGenerator(config,data_ids)
     logger.info(10*"-")
-    train_generator[1]
+    a=train_generator[1]
+    print(type(a))
 
-
-    exit()
     model = build_atomod_v2(config)    # instanciation du modèle
-    model.compile(optimizer=config['optimizer'],
+    model.compile(optimizer=config['train']['optimizer'],
                   loss=combined_loss,
                   metrics=['accuracy'])
 
@@ -372,6 +485,11 @@ def train(config):
     #print(f"steps_per_epoch={len(train_generator),}")
     # 4. Lancement de l'instruction
     print("Début de l'entraînement multimodal...")
+    history = model.fit(
+         train_generator,                        # données d'entrées
+         epochs=100,   # Le nombre total de fois où le modèle va parcourir l'intégralité du jeu de données d'entraînement.
+         callbacks=callbacks
+    )
     #history = model.fit(
     #     x=train_generator,                        # données d'entrées
     #     validation_data=validation_generator,   #
@@ -382,6 +500,7 @@ def train(config):
     print("Modèle prêt pour la reconstruction 3D.")
 
     
+##########################################################################################################################
 def dvl():
     # --- Configuration ---
     H, W = 128, 128
