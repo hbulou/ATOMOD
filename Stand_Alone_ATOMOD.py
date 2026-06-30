@@ -1,6 +1,6 @@
 import os
 import tensorflow as tf
-
+from pathlib import Path
 
 # Configuration du logging
 import logging
@@ -60,8 +60,8 @@ from ATOMOD.data_generation import mk_in_silico_data
 
 
 def main():
-    gen_data=False
-    train_model=True
+    gen_data=True
+    train_model=False
 
     status={
         'NP':True,
@@ -71,7 +71,8 @@ def main():
         'optimization':False,
     }
     config={
-        'root_dir':'simul',                          # répertoire de base
+        'run_dir':'run_dir',                          # répertoire de lancement
+        'simul_dir':'simul',                          # répertoire de base de la simulation
         'train':{
             'TEM_img_dir'      : "train/TEM",        # répertoire de stockage des images TEM
             'EXAFS_dir'        : "train/EXAFS",      # répertoire de stockage des spectres EXAFS
@@ -154,9 +155,11 @@ def main():
     }
     
 
-    
+    config['run_dir']=Path.cwd()
     if gen_data:
-        mk_in_silico_data(config)
+        for seed in range(1,3):
+            config['NP']['seed']=seed
+            mk_in_silico_data(config)
     if train_model:
         train(config)
 # #########################################################################################

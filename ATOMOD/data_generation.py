@@ -22,8 +22,7 @@ logger = logging.getLogger(__name__)
 
 # ##################################################################################
 def mk_in_silico_data(config):
-    ##############################################################################################################################"
-    config['root_dir']=f"{config['root_dir']}/{config['NP']['seed']}"
+    ################################################################################
     # _______________________________________
     #
     # Etape 1 : construire la nanoparticules
@@ -41,7 +40,7 @@ def mk_in_silico_data(config):
         #   Etape 1.2 : la distribution chimique
 
         NP.set_composition(config['NP']['structure']['composition'],seed=config['NP']['seed'])
-        directory=Path.cwd()/config['root_dir']/config['train']['nfo_dir']/"XYZ"
+        directory=config['run_dir']/config['simul_dir']/str(config['NP']['seed'])/config['train']['nfo_dir']/"XYZ"
         directory.mkdir(parents=True, exist_ok=True)
 
         NP.save(prefix="NP",fmt='xyz',directory=directory)
@@ -54,7 +53,7 @@ def mk_in_silico_data(config):
     #
     # Etape 2 : construire les cartes de probabilité de présence atomique
     # ___________________________________________________________________
-    if config['atomic probability map']['status']:
+    if config['atomic presence probability map']['status']:
         NP.xyz2slice(config)
         logger.info(f"{NP.qmin[0]} {NP.qmax[0]} {NP.qmin[1]} {NP.qmax[1]}")
         logger.info(f"{config['image']['xmin']} {config['image']['xmax']} {config['image']['ymin']} {config['image']['ymax']}")
@@ -70,7 +69,7 @@ def mk_in_silico_data(config):
     # ____________________________________________________
     # Etape 4 : construire les spectres EXAFS
     # ____________________________________________________
-    feff_dir=Path.cwd()/config['root_dir']/config['train']['nfo_dir']/"feff_input_files"
+    feff_dir=config['run_dir']/config['simul_dir']/str(config['NP']['seed'])/config['train']['nfo_dir']/"feff_input_files"
     if config['feff']['status']:
         feff_dir.mkdir(parents=True, exist_ok=True)
         base_dir=os.getcwd()
@@ -82,6 +81,10 @@ def mk_in_silico_data(config):
                 os.chdir(f"{config['feff']['parameters']['input_save_dir']}")
                 NP.FEFF_create_input_file(config['feff']['parameters'],absorber_idx=atm.idx)
                 NP.FEFF_run(config['feff']['parameters'])
+                dossier = Path("./")
+                for element in dossier.iterdir():
+                    if element.is_file() and element.name != "xmu.dat":
+                        element.unlink()
                 os.chdir(base_dir)
     
     # Initialise automatiquement avec une liste vide
@@ -96,7 +99,7 @@ def mk_in_silico_data(config):
             series[atm.elt].append((k,chi))
         except:
             logger.error(f"file {xmu_dir}/xmu.dat not found!")
-    exafs_dir=Path.cwd()/config['root_dir']/config['train']['EXAFS_dir']
+    exafs_dir=config['run_dir']/config['simul_dir']/str(config['NP']['seed'])/config['train']['EXAFS_dir']
     exafs_dir.mkdir(parents=True, exist_ok=True)
 
 
