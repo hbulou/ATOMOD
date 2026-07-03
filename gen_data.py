@@ -1,4 +1,6 @@
 import os
+import argparse
+
 from pathlib import Path
 # Configuration du logging
 import logging
@@ -19,7 +21,20 @@ logger = logging.getLogger(__name__)
 from ATOMOD.data_generation import mk_in_silico_data
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Génération de données in silico ATOMOD")
+    parser.add_argument('--seed-start', type=int, default=0,
+                         help="Valeur de départ pour la plage de seeds (incluse)")
+    parser.add_argument('--seed-end', type=int, default=1,
+                         help="Valeur de fin pour la plage de seeds (exclue)")
+    return parser.parse_args()
+
+
 def main():
+
+    args = parse_args()
+
+    
     gen_data=True
     train_model=False
 
@@ -118,7 +133,8 @@ def main():
     config['run_dir']=Path.cwd()
     config['feff']['parameters']['feff_dir']=config['run_dir']/'JFEFF/feff90/unix/'
     logger.info(f'#################### gen_data {10*"#"}')
-    for seed in range(370,410):
+    for seed in range(args.seed_start, args.seed_end):
+
         config['NP']['seed']=seed
         mk_in_silico_data(config)
 # #########################################################################################
