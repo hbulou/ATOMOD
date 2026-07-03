@@ -1,7 +1,5 @@
 import os
-import tensorflow as tf
 from pathlib import Path
-
 # Configuration du logging
 import logging
 logging.basicConfig(
@@ -11,45 +9,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def auto_detect_gpu_compatibility():
-    """
-    Détecte automatiquement si le GPU est obsolète pour TensorFlow (Compute Capability < 6.0)
-    ou s'il n'est pas disponible, et bascule sur le CPU le cas échéant.
-    """
-    logger.info(f'{20*"#"} gen_data starts ... {20*"#"}')
-    gpus = tf.config.list_physical_devices('GPU')
-    
-    if not gpus:
-        logger.info("[ATOMOD] Aucun GPU physique détecté. Mode CPU par défaut.")
-        return
-
-    try:
-        # Récupère les détails matériels du premier GPU
-        details = tf.config.experimental.get_device_details(gpus[0])
-        compute_cap = details.get('compute_capability', (0, 0))
-        gpu_name = details.get('device_name', 'GPU Inconnu')
-        
-        logger.info(f"[ATOMOD] GPU détecté : {gpu_name} (Compute Capability: {compute_cap[0]}.{compute_cap[1]})")
-        
-        # Les versions récentes de TensorFlow ont de graves problèmes de compilation
-        # JIT en dessous de la version 6.0 (Pascal). Ta Quadro M1000M est en 5.0.
-        if compute_cap[0] < 6:
-            logger.info(f"[ATOMOD] ATTENTION : L'architecture de votre {gpu_name} est trop ancienne (CC < 6.0).")
-            logger.info("[ATOMOD] Désactivation automatique du GPU pour éviter un crash 'CUDA_ERROR_NO_BINARY_FOR_GPU'.")
-            
-            # Action corrective : On masque le GPU pour le processus courant
-            os.environ["CUDA_VISIBLE_DEVICES"] = ""
-            
-            # On force TensorFlow à réévaluer les périphériques disponibles immédiatement
-            tf.config.set_visible_devices([], 'GPU')
-            logger.info("[ATOMOD] Bascule sur le CPU réussie.")
-            
-    except Exception as e:
-        logger.info(f"[ATOMOD] Erreur lors de l'analyse du GPU ({e}). Par sécurité, bascule sur le CPU.")
-        os.environ["CUDA_VISIBLE_DEVICES"] = ""
-        tf.config.set_visible_devices([], 'GPU')
-    logger.info(f'{20*"#"} gen_data DONE! {20*"#"}')
-
 # Exécution de la détection automatique
 #auto_detect_gpu_compatibility()
 
@@ -57,7 +16,6 @@ def auto_detect_gpu_compatibility():
 
 # On traverse le dossier ATOMOD, on ouvre le fichier ATOMOD, et on importe la fonction
 #from ATOMOD.data_generation import mk_in_silico_data
-from ATOMOD.MachineLearning import train
 from ATOMOD.data_generation import mk_in_silico_data
 
 
@@ -158,13 +116,11 @@ def main():
     
 
     config['run_dir']=Path.cwd()
-    if gen_data:
-        logger.info(f'#################### gen_data {10*"#"}')
-        for seed in range(1,3):
-            config['NP']['seed']=seed
-            mk_in_silico_data(config)
-    if train_model:
-        train(config)
+    config['feff']['parameters']['feff_dir']=config['run_dir']/'JFEFF/feff90/unix/'
+    logger.info(f'#################### gen_data {10*"#"}')
+    for seed in range(370,410):
+        config['NP']['seed']=seed
+        mk_in_silico_data(config)
 # #########################################################################################
 if __name__ == "__main__":
     main()
