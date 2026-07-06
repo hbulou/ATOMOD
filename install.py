@@ -1,63 +1,45 @@
-# import os
-# import shutil
 import subprocess
 import sys
 import urllib.request
 import zipfile
 from pathlib import Path
 
+#  Defining installation paths
+root        = Path.cwd()
+atomod_dir  = root / "ATOMOD"
+venv_dir    = atomod_dir / "venv" / "ATOMOD" 
 
+# cloning the GitHub repository
+url_depot = "https://github.com/hbulou/ATOMOD.git"
 
-# 1. Définition des chemins universels (~/venv/ATOMOD et ~/src)
-root = Path.cwd()
-venv_dir = root / "ATOMOD" / "venv" 
-src_dir  = root / "ATOMOD"
-
-#src_dir.mkdir(parents=True, exist_ok=True)
-url="https://github.com/hbulou/ATOMOD/archive/refs/heads/main.zip"
-local_zip="./ATOMOD.zip"
-urllib.request.urlretrieve(url, local_zip)
-# 💡 Utilisation du gestionnaire de contexte "with" pour ouvrir proprement le zip
-with zipfile.ZipFile(local_zip, 'r') as zip_ref:
-    # Extraire tout le contenu
-    zip_ref.extractall("./")
-
-print("🎉 Décompression terminée avec succès !")
-
-# [Optionnel] Nettoyage : Supprimer le fichier .zip initial devenu inutile
-Path(local_zip).unlink()
-print("🧹 Fichier main.zip supprimé pour faire de la place.")
-
-dossier_source = Path("./ATOMOD-main")
-# 2. Renommer le dossier de sécurité
-if dossier_source.exists() and dossier_source.is_dir():
-    # ⚠️ Attention : le dossier cible ne doit pas déjà exister, sinon cela peut planter
-    if not src_dir.exists():
-        dossier_source.rename(src_dir)
-        print(f"✅ Répertoire renommé avec succès en : {src_dir}")
-    else:
-        print(f"⚠️ Impossible de renommer : un dossier nommé '{src_dir}' existe déjà.")
+# Security: Check if the folder does not already exist.
+if not atomod_dir.exists():
+    print(f"📥 Cloning the repository {url_depot}...")
+    
+    try:
+        subprocess.run(["git", "clone", url_depot], check=True)
+        print("✅ Repository successfully cloned!")
+        
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Error during git clone: {e}")
+    except FileNotFoundError:
+        print("❌ Error: The 'git' command is not installed or accessible on this system.")
 else:
-    print("❌ Le dossier source 'ATOMOD-main' n'a pas été trouvé.")
+    print(f"ℹ️ The directory '{atomod_dir}' already exists. Cloning cancelled.")
 
-# 2. Création de l'environnement virtuel
+# Creation of the virtual environment
 if not venv_dir.exists():
-    print(f"Création de l'environnement virtuel dans : {venv_dir}")
+    print(f"Creation of the virtual environment in: {venv_dir}")
     subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
 else:
-    print("L'environnement virtuel existe déjà.")
+    print("The virtual environment already exists.")
 
-
-
-# 1. Définir le chemin absolu vers le pip de ton venv
 pip_du_venv = venv_dir/"bin/pip"
-
-# 2. Installer un ou plusieurs packages spécifiques
-print("📦 Installation des packages en cours...")
+# pip update
 subprocess.run([pip_du_venv, "install", "--no-cache-dir", "--upgrade", "pip"])
-#subprocess.run([pip_du_venv, "install", "--no-cache-dir", "jupyterlab", "numpy"])
 
-# 4. Installation des paquets requis
+# Installation of specific packages
+print("📦 Installing packages...")
 packages = [
     "jupyterlab",
     "numpy",
@@ -78,32 +60,6 @@ packages = [
 for pack in packages:
     subprocess.run([pip_du_venv, "install", "--no-cache-dir", pack])
 
-print("✅ Installation terminée !")
-exit()
-
-# Détection de l'exécutable Python selon l'OS (Windows vs Linux/WSL)
-if os.name == "nt":  # Windows
-    venv_python = venv_dir / "Scripts" / "python.exe"
-else:  # Linux / WSL / Mac
-    venv_python = venv_dir / "bin" / "python"
-
-print("Démarrage de l'installation d'ATOMOD...")
-
-
-# 3. Mise à jour de PIP dans l'environnement virtuel
-print(" Mise à jour de pip...")
-subprocess.run(
-    [str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], check=True
-)
-
-
-print(" Installation des bibliothèques Python (cette étape peut prendre du temps)...")
-subprocess.run([str(venv_python), "-m", "pip", "install"] + packages, check=True)
-
-
-
-
-# 5. Création du dossier ~/src
-src_dir.mkdir(parents=True, exist_ok=True)
+print("✅ Installation complete!")
 
 
