@@ -180,6 +180,39 @@ Ensure you have the following:
 \end{itemize}
 
 \subsection*{Windows}
+Installation process on windows:
+\begin{itemize}
+	\item 1 - Open a PowerShell (Fig.\ref{fig:install2}(1-2-3))
+	\item 2 - Navigate to the directory of your choice (e.g., \verb+cd ~/Desktop+ or \verb+cd ~/src+)(Fig.\ref{fig:install2}(4)).
+	
+	\verb+cd C:\Users\herve\Desktop\+
+	
+	
+	
+	\item 3 - Download the installation script \verb+install.py+.
+	
+	\verb+wget https://github.com/hbulou/ATOMOD/releases/download/v0.1/install.py+
+	
+	\item 4 - Run the installation (Fig.\ref{fig:install2}(5)). NOTE: You must have at least 7 GB of available disk space. 
+	
+	\verb+python.exe install.py+
+	
+	\item 5 - Once the installation is complete, go to the ATOMOD directory (Fig.\ref{fig:install2}(6)).
+	
+	\verb+cd ATOMOD+
+	
+	%\item 6 - Run the \verb+run-tuto-ATOMOD.sh+ script to launch the tutorials (Fig.\ref{fig:install1}(e)).
+	
+	%\verb+./run-tuto-ATOMOD.sh+
+	
+\end{itemize}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{install2}
+	\caption{Screenshots of the various stages of installing ATOMOD on Windows.}
+	\label{fig:install2}
+\end{figure}
 
 \subsection*{Linux}
 
@@ -238,7 +271,7 @@ Installation process on linux:
 
 %Pour mettre à jour ATOMOD, il suffit d'exéécuter le script \verb+update_ATOMOD.py+ :
 
-To update ATOMOS, simply run the \verb+update_ATOMOD.py+ script:
+To update ATOMOS, simply run the \verb+update_ATOMOD.py+ script  (Fig.\ref{fig:install2}(8)):
 
 \verb+python3 update_ATOMOD.py+
 
@@ -272,9 +305,13 @@ Four tutorials are available in the \verb+./doc/tutorials+ directory:
 	\item \verb+04-tuto-molecular-dynamics.ipynb+, describing the procedure for performing classical molecular dynamics (MACE force fields).
 \end{itemize}
 
-To run the tutorials, the simplest method is to use the \verb+run_tuto_ATOMOD.py+ file located in the \verb+ATOMOD+ directory:
+To run the tutorials, the simplest method is to use the \verb+run_tuto_ATOMOD.py+ file located in the \verb+ATOMOD+ directory ( (Fig.\ref{fig:install2}(7)):
 
 \verb+ python3 run_tuto_ATOMOD.py+
+
+Note regarding \verb+03-tuto-EXAFS.ipynb+: the tutorial was developed for use with \verb+FEFF+ installed outside the \verb+ATOMOD+ distribution; therefore, this tutorial will not work if you do not have \verb+FEFF+ installed on your computer.
+
+%Remarque concernant  \verb+03-tuto-EXAFS.ipynb+ : le tutoriel a été développé pour être utilisé avec \verb+FEFF+ installé  en dehors de la distribution \verb+ATOMOD+ aussi ce tutoriel ne fonctionnera pas si vous n'avez pas \verb+FEFF+ installé sur votre ordinateur.
 
 %\printindex
 \bibliographystyle{plain} 
