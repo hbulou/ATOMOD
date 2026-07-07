@@ -155,24 +155,14 @@
 % ============================================================================
 % INSTALL
 % ============================================================================
-\section*{Installation (linux)}
-
-%AVANT DE COMMENCER : CONFIGURATION REQUISE POUR ATOMOD  ⚠
-%Afin d'éviter tout échec en cours de route, assurez-vous de disposer de :
-% ESPACE DISQUE :
-%   • Au moins 7 GB d'espace libre sur votre partition.
-% LOGICIELS SYSTÈME (Obligatoires) :
-%   • git          (pour cloner le dépôt ATOMOD)
-%   • python3-venv (pour isoler les paquets Python)
-%   • python3-pip  (pour installer les dépendances)
-%   • wget         (pour récupérer les fichiers du tutoriel)
-% Sur Ubuntu / Xubuntu / Debian, vous pouvez tout installer avec :
-% sudo apt update && sudo apt install git python3-pip python3-venv wget
-
-
+\section*{Installation}
 Before you begin, check the ATOMOD systems requirements, to avoid any issues during the process.
 Ensure you have the following:
 \begin{itemize}
+	\item PYTHON:
+	\begin{itemize}
+		\item Requires Python 3.12 or an earlier version (e.g., 3.11, 3.10) to avoid compilation errors. 
+	\end{itemize}
 	\item DISK SPACE:
 	\begin{itemize}
 		\item 	At least 7 GB of free space on your partition. 
@@ -188,6 +178,24 @@ Ensure you have the following:
 	\verb+sudo apt update && sudo apt install git python3-pip python3-venv wget+
 	
 \end{itemize}
+
+\subsection{Windows}
+
+\subsection*{Linux)}
+
+%AVANT DE COMMENCER : CONFIGURATION REQUISE POUR ATOMOD  ⚠
+%Afin d'éviter tout échec en cours de route, assurez-vous de disposer de :
+% ESPACE DISQUE :
+%   • Au moins 7 GB d'espace libre sur votre partition.
+% LOGICIELS SYSTÈME (Obligatoires) :
+%   • git          (pour cloner le dépôt ATOMOD)
+%   • python3-venv (pour isoler les paquets Python)
+%   • python3-pip  (pour installer les dépendances)
+%   • wget         (pour récupérer les fichiers du tutoriel)
+% Sur Ubuntu / Xubuntu / Debian, vous pouvez tout installer avec :
+% sudo apt update && sudo apt install git python3-pip python3-venv wget
+
+
 
 Installation process on linux:
 \begin{itemize}
@@ -210,9 +218,9 @@ Installation process on linux:
 	
 	\verb+cd ATOMOD+
 	
-	\item 6 - Run the \verb+run-tuto-ATOMOD.sh+ script to launch the tutorials (Fig.\ref{fig:install1}(e)).
+	%\item 6 - Run the \verb+run-tuto-ATOMOD.sh+ script to launch the tutorials (Fig.\ref{fig:install1}(e)).
 	
-	\verb+./run-tuto-ATOMOD.sh+
+	%\verb+./run-tuto-ATOMOD.sh+
 	
 \end{itemize}
 
@@ -223,10 +231,37 @@ Installation process on linux:
 	\label{fig:install1}
 \end{figure}
 
-
+% ============================================================================
+% INSTALL
+% ============================================================================
+\section*{Tutorials}
 % ============================================================================
 % INDEX
 % ============================================================================
+
+%Quatre tutoriels sont disponibles dans le répertoire \verb+./doc/tutorials+
+%\begin{itemize}
+%	\item \verb+01-tuto-in-silico-generation.ipynb+ décrivant la procédure pour créer une nanoparticule in silico,
+%	\item \verb+02-tuto-TEM_image_simulation.ipynb+ décrivant la procédure pour simuler une image TEM,
+%	\item \verb+03-tuto-EXAFS.ipynb+ décrivant la procédure pour simuler les spectres EXAFS d'une nanoparticule,
+%	\item \verb+04-tuto-molecular-dynamics.ipynb+ décrivant la procédure pour suivre faire de la dynamique moléculaire classique (champs de force mace).
+%\end{itemize}
+%
+%Pour lancer les tutoriels, le plus simple est d'utiliser le fichier \verb+run_tuto_ATOMOD.py+ se trouvant dans le répertoire \verb+ATOMOD+ :
+%
+%\verb+ python3 run_tuto_ATOMOD.py+.
+
+Four tutorials are available in the \verb+./doc/tutorials+ directory:
+\begin{itemize}
+	\item \verb+01-tuto-in-silico-generation.ipynb+, describing the procedure for creating a nanoparticle \textit{in silico},
+	\item \verb+02-tuto-TEM_image_simulation.ipynb+, describing the procedure for simulating a TEM image,
+	\item \verb+03-tuto-EXAFS.ipynb+, describing the procedure for simulating the EXAFS spectra of a nanoparticle,
+	\item \verb+04-tuto-molecular-dynamics.ipynb+, describing the procedure for performing classical molecular dynamics (MACE force fields).
+\end{itemize}
+
+To run the tutorials, the simplest method is to use the \verb+run_tuto_ATOMOD.py+ file located in the \verb+ATOMOD+ directory:
+
+\verb+ python3 run_tuto_ATOMOD.py+
 
 %\printindex
 \bibliographystyle{plain} 
