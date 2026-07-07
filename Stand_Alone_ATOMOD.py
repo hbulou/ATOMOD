@@ -94,6 +94,9 @@ def main():
             },
             'nvaccum':2.0,
         },
+        'mace':{
+            'model_path':'HBPy/Molecule/mace/20231203mace128L1_epoch199model'
+        },
         'abtem':{
             'status':status['abtem'],
             'dx':0.04,
@@ -158,6 +161,8 @@ def main():
     
 
     config['run_dir']=Path.cwd()
+    config['mace']['model_path']=Path.cwd()/config['mace']['model_path']
+    
     if gen_data:
         logger.info(f'#################### gen_data {10*"#"}')
         for seed in range(1,3):

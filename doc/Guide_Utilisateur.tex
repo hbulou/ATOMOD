@@ -1,0 +1,235 @@
+\documentclass[12pt,a4paper,french]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+%\usepackage[francais]{babel}
+\usepackage{polyglossia}
+\setmainlanguage{french}
+\setmainlanguage{english}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{cprotect}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xhfill}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{textcomp}
+\usepackage{float}
+\usepackage{verbatim}
+\usepackage{titlesec}
+\usepackage{cprotect}
+\usepackage{float}
+\usepackage{bm}
+\usepackage{forest}
+% Géométrie de la page
+\geometry{
+    left=1.0cm,
+    right=1.0cm,
+    top=.5cm,
+    bottom=1.5cm,
+    headheight=1.0cm,
+    headsep=1cm,
+    footskip=0.75cm
+}
+
+% Couleurs
+\definecolor{darkblue}{HTML}{1f4788}
+\definecolor{lightblue}{HTML}{E8F0F8}
+\definecolor{darkgreen}{HTML}{2d7d3a}
+\definecolor{lightgreen}{HTML}{E8F5E9}
+\definecolor{darkred}{HTML}{c1121f}
+\definecolor{lightyellow}{HTML}{FFF8DC}
+\definecolor{codegray}{gray}{0.95}
+\definecolor{lightcyan}{HTML}{E0F7FA}
+\definecolor{darkcyan}{HTML}{00838F}
+% En-tête et pied de page
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{darkblue}{\textbf{PyCyto\_Emergence}}}
+\fancyhead[R]{\textcolor{darkblue}{Guide d'utilisation}}
+\fancyfoot[C]{\thepage}
+\fancyfoot[R]{\small v0.6.0}
+\renewcommand{\headrulewidth}{1pt}
+\renewcommand{\footrulewidth}{0.5pt}
+
+% Styles des sections
+\titleformat{\chapter}[display]
+{\normalfont\huge\bfseries\color{darkblue}}
+{\chaptertitlename\ \thechapter}
+{20pt}
+{\huge}
+
+\titleformat{\section}
+{\normalfont\Large\bfseries\color{darkblue}}
+{\thesection}
+{1em}
+{}
+
+\titleformat{\subsection}
+{\normalfont\large\bfseries\color{darkgreen}}
+{\thesubsection}
+{1em}
+{}
+
+% Environnement pour les boîtes
+\usepackage[most]{tcolorbox}
+
+\newenvironment{infobox}
+{\begin{tcolorbox}[colback=lightblue, colframe=darkblue, title=\textbf{ℹ Information}, boxrule=1.5pt]}
+{\end{tcolorbox}}
+
+\newenvironment{successbox}
+{\begin{tcolorbox}[colback=lightgreen, colframe=darkgreen, title=\textbf{✓ Succès}, boxrule=1.5pt]}
+{\end{tcolorbox}}
+
+\newenvironment{warningbox}
+{\begin{tcolorbox}[colback=lightyellow, colframe=darkred, title=\textbf{⚠ Attention}, boxrule=1.5pt]}
+{\end{tcolorbox}}
+
+
+\newenvironment{todobox}
+{\begin{tcolorbox}[colback=lightcyan, colframe=darkcyan, 
+		title=\textbf{[>] To Do}, boxrule=1.5pt]}
+{\end{tcolorbox}}
+% Code listings
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    backgroundcolor=\color{codegray},
+    frame=single,
+    frameround=tttt,
+    captionpos=b,
+    tabsize=4,
+    language=Python
+}
+
+
+
+
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\tikzset{%
+	>={Latex[width=2mm,length=2mm]},
+	% Specifications for style of nodes:
+	base/.style = {rectangle, rounded corners, draw=black,
+					minimum width=4cm, minimum height=1cm,
+					text centered, font=\sffamily},
+	algorithmStarts/.style = {base, fill=blue!30},
+	startstop/.style = {base, fill=red!30},
+	function/.style = {base, fill=green!30},
+	process/.style = {base, minimum width=2.5cm, fill=orange!15,font=\ttfamily},
+}
+
+
+% Titre personnalisé
+\title{\Huge\textbf{\textcolor{darkblue}{ATOMOD}}\\
+       \Large\textcolor{darkgreen}{User guide}\\
+       }
+\author{H. Bulou}
+\date{Version 0.6.0 \\ \today}
+
+% ============================================================================
+% DOCUMENT
+% ============================================================================
+
+\begin{document}
+
+% Page de titre
+\maketitle
+% Page blanche
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+% Table des matières
+%\newpage
+%\tableofcontents
+%\newpage
+% ============================================================================
+% INSTALL
+% ============================================================================
+\section*{Installation (linux)}
+
+%AVANT DE COMMENCER : CONFIGURATION REQUISE POUR ATOMOD  ⚠
+%Afin d'éviter tout échec en cours de route, assurez-vous de disposer de :
+% ESPACE DISQUE :
+%   • Au moins 7 GB d'espace libre sur votre partition.
+% LOGICIELS SYSTÈME (Obligatoires) :
+%   • git          (pour cloner le dépôt ATOMOD)
+%   • python3-venv (pour isoler les paquets Python)
+%   • python3-pip  (pour installer les dépendances)
+%   • wget         (pour récupérer les fichiers du tutoriel)
+% Sur Ubuntu / Xubuntu / Debian, vous pouvez tout installer avec :
+% sudo apt update && sudo apt install git python3-pip python3-venv wget
+
+
+Before you begin, check the ATOMOD systems requirements, to avoid any issues during the process.
+Ensure you have the following:
+\begin{itemize}
+	\item DISK SPACE:
+	\begin{itemize}
+		\item 	At least 7 GB of free space on your partition. 
+	\end{itemize}
+	\item SYSTEM SOFTWARE (Required):
+	\begin{itemize}
+		\item \verb+git+          (to clone the ATOMOD repository)
+		\item \verb+python3-venv+ (to isolate Python packages)
+		\item \verb+python3-pip+  (to install dependencies)
+		\item  \verb+wget+         (to download installer \verb+install.py+)
+	\end{itemize}
+	On Ubuntu / Xubuntu / Debian, you can install everything using:\\
+	\verb+sudo apt update && sudo apt install git python3-pip python3-venv wget+
+	
+\end{itemize}
+
+Installation process on linux:
+\begin{itemize}
+	\item 1 - Open an X terminal
+	\item 2 - Navigate to the directory of your choice (e.g., \verb+cd ~/Desktop+ or \verb+cd ~/src+)(Fig.\ref{fig:install1}(a)).
+	
+	\verb+cd Desktop+
+	
+	
+	
+	\item 3 - Download the installation script \verb+install.py+ (Fig.\ref{fig:install1}(b)).
+	
+	\verb+wget https://github.com/hbulou/ATOMOD/releases/download/v0.1/install.py+
+	
+	\item 4 - Run the installation (Fig.\ref{fig:install1}(c)). NOTE: You must have at least 7 GB of available disk space. 
+	
+	\verb+python3 install.py+
+	
+	\item 5 - Once the installation is complete, go to the ATOMOD directory (Fig.\ref{fig:install1}(d)).
+	
+	\verb+cd ATOMOD+
+	
+	\item 6 - Run the \verb+run-tuto-ATOMOD.sh+ script to launch the tutorials (Fig.\ref{fig:install1}(e)).
+	
+	\verb+./run-tuto-ATOMOD.sh+
+	
+\end{itemize}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\linewidth]{install1}
+	\caption{Screenshots of the various stages of installing ATOMOD on Linux.}
+	\label{fig:install1}
+\end{figure}
+
+
+% ============================================================================
+% INDEX
+% ============================================================================
+
+%\printindex
+\bibliographystyle{plain} 
+%\bibliography{ATOMOD}
+%\begin{thebibliography}{3}
+\end{document}

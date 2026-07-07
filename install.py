@@ -1,8 +1,24 @@
+import os
 import subprocess
 import sys
 import urllib.request
 import zipfile
 from pathlib import Path
+
+
+if os.name == "nt":  # Windows
+
+    # 🛡️ Vérification de la version : maximum 3.12 autorisé
+    # sys.version_info renvoie un tuple, par exemple (3, 14, 0) pour Python 3.14
+    if sys.version_info > (3, 13):
+        print(f"❌ Erreur : Vous utilisez Python {sys.version_info.major}.{sys.version_info.minor}.")
+        print("Ce script nécessite Python 3.13 ou une version antérieure (ex: 3.11, 3.10) pour éviter les erreurs de compilation.")
+        sys.exit(1)  # Arrête immédiatement le script avec un code d'erreur
+
+    print(f"✅ Version de Python compatible : {sys.version_info.major}.{sys.version_info.minor}") 
+
+
+
 
 #  Defining installation paths
 root        = Path.cwd()
@@ -34,9 +50,21 @@ if not venv_dir.exists():
 else:
     print("The virtual environment already exists.")
 
-pip_du_venv = venv_dir/"bin/pip"
-# pip update
-subprocess.run([pip_du_venv, "install", "--no-cache-dir", "--upgrade", "pip"])
+if os.name == "nt":  # Windows
+    pip_venv = venv_dir / "Scripts" / "pip.exe"
+    pip_sys = sys.executable
+    subprocess.run([pip_sys, "-m","pip","install", "--no-cache-dir", "--upgrade", "pip"], check=True)
+
+else:  # Linux / macOS
+    pip_venv = venv_dir / "bin" / "pip"
+    pip_sys = venv_dir / "bin" / "pip"
+    # pip update
+    subprocess.run([pip_sys, "install", "--no-cache-dir", "--upgrade", "pip"], check=True)
+
+
+pip_venv = str(pip_venv)  # subprocess préfère une chaîne, surtout sous Windows
+
+
 
 # Installation of specific packages
 print("📦 Installing packages...")
@@ -58,8 +86,6 @@ packages = [
     "py3Dmol",
 ]
 for pack in packages:
-    subprocess.run([pip_du_venv, "install", "--no-cache-dir", pack])
+    subprocess.run([pip_venv, "install", "--no-cache-dir", pack], check=True)
 
 print("✅ Installation complete!")
-
-

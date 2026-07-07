@@ -12,6 +12,9 @@ from HBPy.Molecule.Atom import Atom
 from mace.calculators import mace_mp
 import ase
 import ase.optimize
+from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
+from ase.md.langevin import Langevin
+from ase import units
 
 import sys
 #sys.path.append('./lib/')
@@ -550,10 +553,13 @@ class Crystal:
         #    print(atm.F[idx_new],atm.F[(idx_new+1)%2])
         
     #________________________________________________________________________________        
-    def optimize_ase(self,tol=1.0e-12,new_step=None):
+    def optimize_ase(self,
+                     tol=1.0e-12,
+                     new_step=None,
+                     model_path = '/home/bulou/.cache/mace/20231203mace128L1_epoch199model'):
     #________________________________________________________________________________
 
-        model_path = '/home/bulou/.cache/mace/20231203mace128L1_epoch199model'
+        
         
         calc = mace_mp(model=model_path,   # chemin explicite - model='medium',
                        device='cpu',
@@ -591,6 +597,80 @@ class Crystal:
         # Sauvegarder la structure relaxée
         ase.io.write('NP_relaxed.xyz', atoms)
         logger.info("Structure relaxée sauvegardée dans NP_relaxed.xyz")
+        
+        self.from_ase_Atoms(atoms)
+        self.origin_at_mass_center()
+
+    #________________________________________________________________________________        
+    def NVT_Langevin_molecular_dynamics_ase(self,
+                                            new_step=None,
+                                            temperature_K=300,
+                                            timestep_fs=1.0,
+                                            friction=0.01,
+                                            log_interval=50,
+                                            n_steps=2000,
+                                            model_path = '/home/bulou/.cache/mace/20231203mace128L1_epoch199model'):
+    #________________________________________________________________________________
+        
+        """
+        Dynamique moléculaire NVT (thermostat de Langevin)        
+        ATTENTION : timestep en fs, friction en unités ASE (1/fs).
+        """
+        
+        calc = mace_mp(model=model_path,   # chemin explicite - model='medium',
+                       device='cpu',
+                       default_dtype='float32')
+        # Charger la NP depuis le fichier XYZ sauvegardé à l'étape 1.2
+        #atoms = ase.io.read('NP.xyz')
+        atoms = self.to_ase_Atoms()
+        # Boîte de simulation avec vide autour de la NP (nécessaire pour MACE)
+        atoms.center(vacuum=10.0)
+        # Attacher le calculateur
+        atoms.calc = calc
+
+
+
+        
+        MaxwellBoltzmannDistribution(atoms, temperature_K=temperature_K)
+        dyn = Langevin(
+            atoms,
+            timestep=timestep_fs * units.fs,
+            temperature_K=temperature_K,
+            friction=friction,
+        )
+        def _log():
+            e_pot = atoms.get_potential_energy()
+            e_kin = atoms.get_kinetic_energy()
+            print(f"[md] step={dyn.nsteps:6d}  "
+                  f"E_pot={e_pot:.4f} eV  E_kin={e_kin:.4f} eV  "
+                  f"T={e_kin/(1.5*units.kB*len(atoms)):.1f} K")
+ 
+        dyn.attach(_log, interval=log_interval)
+ 
+        snapshots = []
+ 
+        def _store():
+            snapshots.append(atoms.copy())
+ 
+        dyn.attach(_store, interval=log_interval)
+ 
+        dyn.run(n_steps)
+ 
+        #write(traj_file, snapshots)
+        #print(f"[md] {len(snapshots)} snapshots sauvegardés dans {traj_file}")
+        #return snapshots
+
+
+        
+        logger.info(f"Structure chargée : {len(atoms)} atomes")
+        logger.info(f"Composition : {atoms.get_chemical_formula()}")
+        
+        
+        
+        # Energie avant minimisation
+        e_avant = atoms.get_potential_energy()
+        logger.info(f"Energie potentielle initiale : {e_avant:.4f} eV")
+        logger.info(f"Soit {e_avant/len(atoms):.4f} eV/atome")
         
         self.from_ase_Atoms(atoms)
         self.origin_at_mass_center()
