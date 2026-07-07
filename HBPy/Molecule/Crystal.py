@@ -288,34 +288,6 @@ class Crystal:
         else :
             print(f"Only simple xyz files can be read!")
                 
-            # i=0
-            # self.filenfo.nstruct=0
-            # struct=[]
-        
-            # while i<len(data):
-            #     if len(data[i].split()) == 1:
-            #         atoms=[]
-            #         self.filenfo.nstruct=self.filenfo.nstruct+1
-            #         natom=int(data[i]) ; i=i+1
-            #         i=i+1
-            #         for j in range(natom):
-            #             line=data[i].split()
-            #             idx=len(self.atoms)
-            #             atoms.append(
-            #                 Atom(
-            #                     elt=line[0],
-            #                     q=np.array([float(line[1]),
-            #                                 float(line[2]),
-            #                                 float(line[3])]),
-            #                     idx=idx))
-                        
-            #             i=i+1
-            #         struct.append(atoms)
-            #         del atoms
-            # print(filename,len(data),len(struct)," structure(s)")
-            # self.atoms=struct[-1]
-            # self.reindex()
-            # self.status = [True]*len(self.atoms)
         
     #________________________________________________________________________________        
     def load_file(self,filename):
@@ -639,11 +611,14 @@ class Crystal:
             friction=friction,
         )
         def _log():
+            
             e_pot = atoms.get_potential_energy()
             e_kin = atoms.get_kinetic_energy()
             print(f"[md] step={dyn.nsteps:6d}  "
                   f"E_pot={e_pot:.4f} eV  E_kin={e_kin:.4f} eV  "
                   f"T={e_kin/(1.5*units.kB*len(atoms)):.1f} K")
+            print(self.list_elt)
+
  
         dyn.attach(_log, interval=log_interval)
  

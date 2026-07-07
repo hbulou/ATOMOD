@@ -42,3 +42,4 @@ Archives/
 *.bbl
 *.blg
 [OLD]*
+venv
