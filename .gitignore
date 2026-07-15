@@ -24,7 +24,13 @@ bulou
 JFEFF/
 Archive/
 *.dat
+#################################################################################
+# On ignore toutes les images PNG par défaut (générées par les calculs, etc.)
 *.png
+# EXCEPTIONS : On souhaite quand même synchroniser ces fichiers précis
+!doc/Figures/*.png
+!doc/tutorials/*.png
+###################################################################################"
 *.inp
 *.bin
 fort.*
