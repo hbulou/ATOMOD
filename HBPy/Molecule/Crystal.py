@@ -15,6 +15,7 @@ import ase.optimize
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase.md.langevin import Langevin
 from ase import units
+from ase.neighborlist import NeighborList, natural_cutoffs
 
 import sys
 #sys.path.append('./lib/')
@@ -23,6 +24,8 @@ import sys
 import abtem
 
 import copy
+import matplotlib
+matplotlib.use('Agg')  # Force un moteur graphique non-interactif et stable
 import matplotlib.pyplot as plt
 import pandas as pd
 import random
@@ -72,26 +75,74 @@ class Crystal:
     #________________________________________________________________________________        
         self.atoms.append(Atom(elt=elt,q=q))
     #________________________________________________________________________________
-    def from_ase_Atoms(self,atoms):
+    def from_ase_Atoms(self,atoms,config):
     #________________________________________________________________________________
+        def get_neighbor_list(atoms, cutoff_scale=1.2):
+            # natural_cutoffs utilise les rayons covalents ASE par espèce
+            cutoffs = natural_cutoffs(atoms, mult=cutoff_scale)
+            nl = NeighborList(cutoffs, self_interaction=False, bothways=True)
+            nl.update(atoms)
+            return nl
+        def coordination_numbers(atoms, nl):
+            CN = np.zeros(len(atoms), dtype=int)
+            for i in range(len(atoms)):
+                indices, offsets = nl.get_neighbors(i)
+                CN[i] = len(indices)
+            return CN
+        def generalized_coordination_numbers(atoms, nl, CN, CN_max=12):
+            GCN = np.zeros(len(atoms))
+            for i in range(len(atoms)):
+                indices, offsets = nl.get_neighbors(i)
+                if len(indices) == 0:
+                    continue
+                GCN[i] = np.sum(CN[indices]) / CN_max
+            return GCN
+        def local_composition(atoms, nl, composition=('Rh', 'Ir')):
+            symbols = np.array(atoms.get_chemical_symbols())
+            frac = {sp: np.zeros(len(atoms)) for sp in composition}
+    
+            for i in range(len(atoms)):
+                indices, offsets = nl.get_neighbors(i)
+                if len(indices) == 0:
+                    continue
+                voisins_symb = symbols[indices]
+                for sp in composition:
+                    frac[sp][i] = np.sum(voisins_symb == sp) / len(indices)
+    
+            return frac  # dict {'Rh': array(N,), 'Ir': array(N,)}
 
-        #for atm in self.atoms:
-        #    atoms += ase.Atom(HBPy.Molecule.Atom.Z_from_elt[atm.elt],
-                              #(atm.q[0],atm.q[1],atm.q[2]))
+
+
+
+
+        
+        nl=get_neighbor_list(atoms)
+        CN=coordination_numbers(atoms,nl)
+        GNN=generalized_coordination_numbers(atoms, nl, CN, CN_max=12):
+        frac=local_composition(atoms,nl,composition=config['NP']['structure']['composition'])
+        # Découpe et associe automatiquement peu importe les clés présentes
+        liste_dicts = [dict(zip(frac.keys(), valeurs)) for valeurs in zip(*frac.values())]
+        epot=atoms.get_potential_energies()
+        self.Epot=atoms.get_potential_energy()
+        
         for i,atome in enumerate(atoms):
-            #logger.info(f"{self.atoms[i].elt} {type(self.atoms[i].q)} Atome {atome.symbol} en position {type(atome.position)}")
+            #logger.info(f"{self.atoms[i].elt} {type(self.atoms[i].q)} Atome {atome.symbol} en position {type(atome.position)} {epot[i]} {CN[i]}")
             self.atoms[i].q=atome.position
+            self.atoms[i].Esite=epot[i]
+            self.atoms[i].CN=CN[i]
+            self.atoms[i].GCN=GCN[i]
+            self.atoms[i].local_composition=liste_dicts[i]
             #logger.info(f"{self.atoms[i].elt} {self.atoms[i].q} Atome {atome.symbol} en position {atome.position}")
+
         return atoms
     #________________________________________________________________________________
-    #________________________________________________________________________________
-    def abTEM(self,config,display=False,savedir='./'):
+    def abTEM(self,config,display=False,savedir='./',name='TEM.png'):
     #________________________________________________________________________________
         #output_dir = f"{config['root_dir']}/{config['train']['TEM_img_dir']}"
         logger.info(f"TEM images directory = {savedir}")
         os.makedirs(savedir, exist_ok=True)
         # Crée une boîte vide de 10x10x10 Å
-        #cellsize=config['abtem']['cell scale']*2.0*max(self.qmax[0]-self.qmin[0],
+        # cellsize=config['abtem']['cell scale']*2.0*max(self.qmax[0]-self.qmin[0],
         #                                               self.qmax[1]-self.qmin[1])
         cellsize=config['image']['xmax']-config['image']['xmin']
         logger.info(f"Cell size: {cellsize}")
@@ -167,7 +218,7 @@ class Crystal:
         plt.axis("off")
         idx_img=0
         # Sauvegarde en PNG (ou autre format suivant l’extension)
-        filename = os.path.join(savedir,f"img_{idx_img:04d}.png")
+        filename = os.path.join(savedir,name)
         plt.savefig(filename,
                     dpi=150,
                     bbox_inches='tight',
@@ -393,10 +444,10 @@ class Crystal:
 
     #________________________________________________________________________________        
     def FEFF_run(self,config):
-    #________________________________________________________________________________        
+    #________________________________________________________________________________       
         for pgm in config['list_pgm']:
             logger.info(f"{100*'#'}\n{pgm}")
-            subprocess.run([config["feff_dir"]+"/"+pgm],
+            subprocess.run([config["feff_exec_dir"]/pgm],
                            capture_output=False, 
                            text=True, 
                            check=True)
@@ -526,9 +577,11 @@ class Crystal:
         
     #________________________________________________________________________________        
     def optimize_ase(self,
+                     config,
                      tol=1.0e-12,
                      new_step=None,
-                     model_path = '/home/bulou/.cache/mace/20231203mace128L1_epoch199model'):
+                     model_path = '/home/bulou/.cache/mace/20231203mace128L1_epoch199model',
+                     save_rlx=False):
     #________________________________________________________________________________
 
         
@@ -536,6 +589,8 @@ class Crystal:
         calc = mace_mp(model=model_path,   # chemin explicite - model='medium',
                        device='cpu',
                        default_dtype='float32')
+
+        
         # Charger la NP depuis le fichier XYZ sauvegardé à l'étape 1.2
         #atoms = ase.io.read('NP.xyz')
         atoms = self.to_ase_Atoms()
@@ -561,16 +616,17 @@ class Crystal:
         opt.run(fmax=0.05)   # convergence à 0.05 eV/Å sur les forces
         
         # Energie après minimisation
-        e_apres = atoms.get_potential_energy()
-        logger.info(f"Energie après minimisation  : {e_apres:.4f} eV")
-        logger.info(f"Soit {e_apres/len(atoms):.4f} eV/atome")
-        logger.info(f"Relaxation : {e_avant - e_apres:.4f} eV")
+        self.Epot = atoms.get_potential_energy()
+        logger.info(f"Energie après minimisation  : {self.Epot:.4f} eV")
+        logger.info(f"Soit {self.Epot/len(atoms):.4f} eV/atome")
+        logger.info(f"Relaxation : {e_avant - self.Epot:.4f} eV")
         
         # Sauvegarder la structure relaxée
-        ase.io.write('NP_relaxed.xyz', atoms)
-        logger.info("Structure relaxée sauvegardée dans NP_relaxed.xyz")
+        if save_rlx:
+            ase.io.write('NP_relaxed.xyz', atoms)
+            logger.info("Structure relaxée sauvegardée dans NP_relaxed.xyz")
         
-        self.from_ase_Atoms(atoms)
+        self.from_ase_Atoms(atoms,config)
         self.origin_at_mass_center()
 
     #________________________________________________________________________________        
@@ -647,7 +703,7 @@ class Crystal:
         logger.info(f"Energie potentielle initiale : {e_avant:.4f} eV")
         logger.info(f"Soit {e_avant/len(atoms):.4f} eV/atome")
         
-        self.from_ase_Atoms(atoms)
+        self.from_ase_Atoms(atoms,config)
         self.origin_at_mass_center()
 
 
@@ -788,13 +844,15 @@ class Crystal:
                 self.atoms[i].q[k]=self.atoms[i].q[k]-self.MC[k]
         #self.MassCenter()
         self.get_structure()
+
     #________________________________________________________________________________        
     def save(self,prefix="crystal",fmt='xyz',savedir='./'):
     #________________________________________________________________________________
         os.makedirs(savedir, exist_ok=True)
         if fmt == 'xyz':
             f=open(f"{savedir}/{prefix}.xyz",'w')
-            f.write("%d\n\n"%(len(self.atoms)))
+            f.write(f"{len(self.atoms):d}\n")
+            f.write(f"epot= {self.Epot:e}\n")
             for atom in self.atoms:
                 f.write("%2s %12.6f %12.6f %12.6f\n"%(atom.elt,atom.q[0],atom.q[1],atom.q[2]))
             f.close()

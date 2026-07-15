@@ -1,4 +1,3 @@
-
 import numpy
 from PIL import Image
 import logging
@@ -17,6 +16,107 @@ from pathlib import Path
 
 import tensorflow as tf
 from tensorflow.keras import layers, models,callbacks
+
+
+import pandas as pd
+import json
+def clustering(config):
+    df = pd.read_parquet('nanoparticules_HEA_atomes.parquet', engine='pyarrow')
+    df['local_composition'] = df['local_composition'].apply(json.loads)
+    features = ['CN', 'Esite']
+    for elt in config['NP']['structure']['composition']:
+        features.append(f"frac_{elt}")
+    X = df[features].copy()
+
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    from sklearn.decomposition import PCA
+    import umap
+    
+    # PCA pour dégrossir / vérifier la variance expliquée
+    pca = PCA(n_components=min(len(features), 10))
+    X_pca = pca.fit_transform(X_scaled)
+    print(numpy.cumsum(pca.explained_variance_ratio_))
+
+    # UMAP pour la structure non-linéaire et la visualisation
+    reducer = umap.UMAP(n_neighbors=30, min_dist=0.1, n_components=len(config['NP']['structure']['composition']), random_state=42)
+    X_umap = reducer.fit_transform(X_scaled)
+
+    import hdbscan
+    for mcs, ms in [(50, 10), (100, 20), (150, 30), (200, 50), (300, 60), (350,70)]:
+        c = hdbscan.HDBSCAN(min_cluster_size=mcs, min_samples=ms)
+        l = c.fit_predict(X_umap)
+        n_clusters = l.max() + 1
+        n_bruit = numpy.sum(l == -1)
+        pers_moy = numpy.mean(c.cluster_persistence_) if n_clusters > 0 else 0
+        print(f"mcs={mcs}, ms={ms}: {n_clusters} clusters, {100*n_bruit/len(l):.1f}% bruit, persistance moyenne={pers_moy:.3f}")
+
+    clusterer_200 = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=50)
+    labels_200 = clusterer_200.fit_predict(X_umap)
+
+    print(clusterer_200.cluster_persistence_)  # persistance individuelle des 8 clusters
+
+
+    clusterer_200.condensed_tree_.plot(select_clusters=True)
+    plt.savefig('condensed_tree_mcs200.png', dpi=150)
+    #plt.show()
+
+    df_200 = df.copy()
+    df_200['cluster'] = labels_200
+
+    print(df_200[df_200['cluster']==0].shape[0], "atomes dans le cluster 0")
+    print(df_200[df_200['cluster']==0][['espece', 'CN', 'Esite']].describe())
+    df_200[df_200['cluster']==0]['espece'].value_counts()
+
+
+    resume = df_200.groupby('cluster').agg(
+        n_atomes=('atome_idx', 'count'),
+        CN_moyen=('CN', 'mean'),
+        Esite_moyen=('Esite', 'mean'),
+        Esite_std=('Esite', 'std'),
+        n_particules=('particule_id', 'nunique'),
+    ).sort_values('Esite_moyen')
+    
+    for esp in config['NP']['structure']['composition']:
+        if f'frac_{esp}' in df_200.columns:
+            resume[f'frac_{esp}_moyenne'] = df_200.groupby('cluster')[f'frac_{esp}'].mean()
+
+    print(resume)
+    from scipy import stats
+    groupes = [df_200[df_200['cluster']==c]['Esite'].values for c in range(8)]
+    stat, pval = stats.kruskal(*groupes)
+    print(f"Kruskal-Wallis: stat={stat:.2f}, p-value={pval:.2e}")
+    exit()
+
+    
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=50, min_samples=10)
+    labels = clusterer.fit_predict(X_umap)  # ou X_scaled directement si vous préférez ne pas réduire avant
+
+    df['cluster'] = labels
+    print(f"{labels.max()+1} clusters trouvés, {numpy.sum(labels==-1)} atomes classés comme bruit (sur {len(df)} atomes au total)")
+    """
+    si le résultat est, par exemple,
+    3 clusters trouvés, 65 atomes classés comme bruit (sur 672 atomes au total)
+    cela signifie que 
+      * 3 clusters sur 672 atomes, avec min_cluster_size=50 : ça veut dire que HDBSCAN a trouvé au moins 3 groupes suffisamment denses et suffisamment grands (≥50 points chacun) pour être considérés comme des structures réelles plutôt que du bruit statistique. C'est un nombre raisonnable — ni 1 seul cluster géant (signe que rien ne se distingue), ni des dizaines de micro-clusters (signe de sur-segmentation ou de bruit interprété comme structure).
+      * 65 atomes classés comme bruit (label -1), soit ~9.7% du total (65/672). C'est une proportion modérée — HDBSCAN a une notion "d'appartenance floue" : ces 65 atomes sont dans des zones trop éparses ou à la frontière entre clusters pour être assignés avec confiance à l'un des 3 groupes. Ce n'est pas un échec, c'est une caractéristique voulue de HDBSCAN par rapport à k-means (qui aurait forcé ces 65 atomes dans un cluster même s'ils n'y appartiennent pas vraiment).
+    """
+
+    # vérification de la taille des clusters
+    valeurs, comptes = numpy.unique(labels, return_counts=True)
+    for v, c in zip(valeurs, comptes):
+        nom = "bruit" if v == -1 else f"cluster {v}"
+        print(f"{nom}: {c} atomes ({100*c/len(labels):.1f}%)")
+    # La stabilité des clusters — HDBSCAN calcule un score de persistance par cluster, qui indique à quel point chaque cluster est "robuste" statistiquement. Un cluster avec une persistance très faible (proche de 0) est fragile — il pourrait disparaître avec un léger changement de paramètres, donc à interpréter avec prudence.
+    print(f"persistence: {clusterer.cluster_persistence_}")  # un score par cluster (0 à 1, plus haut = plus stable)
+    # Qui sont les 65 atomes de bruit — sont-ils répartis aléatoirement entre espèces/particules, ou concentrés sur une espèce/situation particulière (ex. atomes isolés en sommet de particule avec CN très faible, donc géométriquement atypiques) ?
+    df[df['cluster']==-1]['espece'].value_counts()
+    df[df['cluster']==-1]['CN'].describe()
+
+    
 
 ##########################################################################################################################
 def build_exafs_k_space_encoder(input_shape_exafs, latent_dim=128):
