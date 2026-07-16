@@ -118,7 +118,7 @@ class Crystal:
         
         nl=get_neighbor_list(atoms)
         CN=coordination_numbers(atoms,nl)
-        GNN=generalized_coordination_numbers(atoms, nl, CN, CN_max=12):
+        GCN=generalized_coordination_numbers(atoms, nl, CN, CN_max=12)
         frac=local_composition(atoms,nl,composition=config['NP']['structure']['composition'])
         # Découpe et associe automatiquement peu importe les clés présentes
         liste_dicts = [dict(zip(frac.keys(), valeurs)) for valeurs in zip(*frac.values())]

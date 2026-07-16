@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Génération de données in silico ATOMOD")
-    parser.add_argument('--seed-start', type=int, default=0,
+    parser.add_argument('--seed_start', type=int, default=0,
                          help="Valeur de départ pour la plage de seeds (incluse)")
-    parser.add_argument('--seed-end', type=int, default=1,
+    parser.add_argument('--seed_end', type=int, default=1,
                          help="Valeur de fin pour la plage de seeds (exclue)")
     parser.add_argument('--radius', type=float, default=5.0,
                          help="Rayon, en angstroem, de la nanoparticule")
@@ -152,13 +152,31 @@ def main():
 
     if args.alloy_stability:
         from ATOMOD.data_generation import alloy_stability
-        config['simul_dir']='Alloy_Stability2'
+        config['simul_dir']='Alloy_Stability3'
         alloy_stability(config)
     if args.mk_in_silico_data:
-        from ATOMOD.data_generation import mk_in_silico_data
+        logger.info(f'{20*"#"} Make In Silico Data {20*"#"}')
+        from ATOMOD.data_generation import mk_in_silico_data_v2
+        config['simul_dir']=Path('simulv2')
+        savedir=config['run_dir']/config['simul_dir']
+        if not savedir.exists():
+            print(f"❌ Le répertoire n'existe pas")
+            # Créer le répertoire
+            savedir.mkdir(parents=True, exist_ok=True)
+            print(f"✅ Répertoire créé: {savedir}")
+            idx=0
+        else:
+            print(f"✅ Le répertoire existe")
+            # Lister les répertoires qu'il contient
+            subdirs = [d.name for d in savedir.iterdir() if d.is_dir()]
+            print(f"\nRépertoires contenus ({len(subdirs)}):")
+            for subdir in sorted(subdirs):
+                print(f"  - {subdir}")
+            idx=len(subdirs)
         for seed in range(args.seed_start, args.seed_end):
             config['NP']['seed']=seed
-            mk_in_silico_data(config)
+            mk_in_silico_data_v2(config,idx)
+            idx+=1
     if args.clustering:
         from ATOMOD.MachineLearning import clustering
         clustering(config)

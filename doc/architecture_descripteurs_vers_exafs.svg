@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="680"
+   height="860"
+   viewBox="0 0 680 860"
+   role="img"
+   version="1.1"
+   id="svg24"
+   sodipodi:docname="architecture_descripteurs_vers_exafs.svg"
+   inkscape:export-filename="architecture_descripteurs_vers_exafs.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   inkscape:version="1.4.4 (1:1.4.4+202605061432+dcaf3e7d9e)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview24"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="0.99302326"
+     inkscape:cx="340.37471"
+     inkscape:cy="430"
+     inkscape:window-width="1920"
+     inkscape:window-height="1056"
+     inkscape:window-x="1920"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg24" />
+  <title
+     id="title1">Architecture descripteurs vers spectre EXAFS et Esite</title>
+  <desc
+     id="desc1">Un encodeur dense partagé traite les descripteurs atomiques, puis se divise en deux branches : un décodeur convolutif 1D qui reconstruit le spectre EXAFS, et une petite branche dense qui prédit l'énergie de site.</desc>
+  <defs
+     id="defs1">
+    <marker
+       id="arrow"
+       viewBox="0 0 10 10"
+       refX="8"
+       refY="5"
+       markerWidth="6"
+       markerHeight="6"
+       orient="auto-start-reverse">
+      <path
+         d="M2 1L8 5L2 9"
+         fill="none"
+         stroke="#5F5E5A"
+         stroke-width="1.5"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         id="path1" />
+    </marker>
+  </defs>
+  <rect
+     width="680"
+     height="860"
+     fill="#FFFFFF"
+     id="rect1" />
+  <!-- Trunk: shared dense encoder -->
+  <g
+     id="g3">
+    <rect
+       x="230"
+       y="40"
+       width="220"
+       height="56"
+       rx="8"
+       fill="#f1efe8"
+       stroke="#5f5e5a"
+       stroke-width="0.5"
+       id="rect2" />
+    <text
+       x="340"
+       y="60"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14px"
+       font-weight="500"
+       fill="#2c2c2a"
+       id="text2">Descripteurs</text>
+    <text
+       x="340"
+       y="78"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12px"
+       fill="#444441"
+       id="text3">Vecteur d'entrée (n_features)</text>
+  </g>
+  <line
+     x1="340"
+     y1="96"
+     x2="340"
+     y2="136"
+     stroke="#5f5e5a"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="line3" />
+  <g
+     id="g5">
+    <rect
+       x="230"
+       y="136"
+       width="220"
+       height="56"
+       rx="8"
+       fill="#f1efe8"
+       stroke="#5f5e5a"
+       stroke-width="0.5"
+       id="rect3" />
+    <text
+       x="340"
+       y="156"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14px"
+       font-weight="500"
+       fill="#2c2c2a"
+       id="text4">Dense 64</text>
+    <text
+       x="340"
+       y="174"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12px"
+       fill="#444441"
+       id="text5">Activation ReLU</text>
+  </g>
+  <line
+     x1="340"
+     y1="192"
+     x2="340"
+     y2="232"
+     stroke="#5f5e5a"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="line5" />
+  <g
+     id="g7">
+    <rect
+       x="230"
+       y="232"
+       width="220"
+       height="56"
+       rx="8"
+       fill="#f1efe8"
+       stroke="#5f5e5a"
+       stroke-width="0.5"
+       id="rect5" />
+    <text
+       x="340"
+       y="252"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14px"
+       font-weight="500"
+       fill="#2c2c2a"
+       id="text6">Dense 128</text>
+    <text
+       x="340"
+       y="270"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12px"
+       fill="#444441"
+       id="text7">Tronc commun, ReLU</text>
+  </g>
+  <!-- Branch split -->
+  <path
+     d="M300 288 L170 288 L170 352"
+     fill="none"
+     stroke="#5F5E5A"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="path7" />
+  <path
+     d="M380 288 L510 288 L510 352"
+     fill="none"
+     stroke="#5F5E5A"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="path8" />
+  <text
+     x="150"
+     y="276"
+     text-anchor="middle"
+     font-family="Arial, sans-serif"
+     font-size="12px"
+     fill="#444441"
+     id="text8">branche spectre</text>
+  <text
+     x="530"
+     y="282"
+     text-anchor="middle"
+     font-family="Arial, sans-serif"
+     font-size="12px"
+     fill="#444441"
+     id="text9">branche Esite</text>
+  <!-- Spectrum decoder branch (teal) -->
+  <g
+     id="g11">
+    <rect
+       x="70"
+       y="352"
+       width="200"
+       height="56"
+       rx="8"
+       fill="#E1F5EE"
+       stroke="#0F6E56"
+       stroke-width="0.5"
+       id="rect9" />
+    <text
+       x="170"
+       y="372"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14"
+       font-weight="500"
+       fill="#04342C"
+       id="text10">Dense + reshape</text>
+    <text
+       x="170"
+       y="390"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12"
+       fill="#085041"
+       id="text11">vers séquence 1D</text>
+  </g>
+  <line
+     x1="170"
+     y1="408"
+     x2="170"
+     y2="448"
+     stroke="#5F5E5A"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="line11" />
+  <g
+     id="g13">
+    <rect
+       x="70"
+       y="448"
+       width="200"
+       height="56"
+       rx="8"
+       fill="#E1F5EE"
+       stroke="#0F6E56"
+       stroke-width="0.5"
+       id="rect11" />
+    <text
+       x="170"
+       y="468"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14"
+       font-weight="500"
+       fill="#04342C"
+       id="text12">Upsampling + Conv1D</text>
+    <text
+       x="170"
+       y="486"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12"
+       fill="#085041"
+       id="text13">32 canaux, noyau 5</text>
+  </g>
+  <line
+     x1="170"
+     y1="504"
+     x2="170"
+     y2="544"
+     stroke="#5F5E5A"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="line13" />
+  <g
+     id="g15">
+    <rect
+       x="70"
+       y="544"
+       width="200"
+       height="56"
+       rx="8"
+       fill="#E1F5EE"
+       stroke="#0F6E56"
+       stroke-width="0.5"
+       id="rect13" />
+    <text
+       x="170"
+       y="564"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14"
+       font-weight="500"
+       fill="#04342C"
+       id="text14">Upsampling + Conv1D</text>
+    <text
+       x="170"
+       y="582"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12"
+       fill="#085041"
+       id="text15">16 canaux, noyau 5</text>
+  </g>
+  <line
+     x1="170"
+     y1="600"
+     x2="170"
+     y2="640"
+     stroke="#5F5E5A"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="line15" />
+  <g
+     id="g17">
+    <rect
+       x="70"
+       y="640"
+       width="200"
+       height="56"
+       rx="8"
+       fill="#E1F5EE"
+       stroke="#0F6E56"
+       stroke-width="0.5"
+       id="rect15" />
+    <text
+       x="170"
+       y="660"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14"
+       font-weight="500"
+       fill="#04342C"
+       id="text16">Upsampling + Conv1D</text>
+    <text
+       x="170"
+       y="678"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12"
+       fill="#085041"
+       id="text17">16 canaux, noyau 5</text>
+  </g>
+  <line
+     x1="170"
+     y1="696"
+     x2="170"
+     y2="736"
+     stroke="#5F5E5A"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="line17" />
+  <g
+     id="g19">
+    <rect
+       x="70"
+       y="736"
+       width="200"
+       height="56"
+       rx="8"
+       fill="#E1F5EE"
+       stroke="#0F6E56"
+       stroke-width="0.5"
+       id="rect17" />
+    <text
+       x="170"
+       y="756"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14"
+       font-weight="500"
+       fill="#04342C"
+       id="text18">Conv1D sortie</text>
+    <text
+       x="170"
+       y="774"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12"
+       fill="#085041"
+       id="text19">spectre_exafs, k^n·chi(k)</text>
+  </g>
+  <!-- Esite auxiliary branch (coral) -->
+  <g
+     id="g21">
+    <rect
+       x="410"
+       y="352"
+       width="200"
+       height="56"
+       rx="8"
+       fill="#FAECE7"
+       stroke="#993C1D"
+       stroke-width="0.5"
+       id="rect19" />
+    <text
+       x="510"
+       y="372"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14"
+       font-weight="500"
+       fill="#4A1B0C"
+       id="text20">Dense 32</text>
+    <text
+       x="510"
+       y="390"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12"
+       fill="#712B13"
+       id="text21">Activation ReLU</text>
+  </g>
+  <line
+     x1="510"
+     y1="408"
+     x2="510"
+     y2="448"
+     stroke="#5F5E5A"
+     stroke-width="1.5"
+     marker-end="url(#arrow)"
+     id="line21" />
+  <g
+     id="g23">
+    <rect
+       x="410"
+       y="448"
+       width="200"
+       height="56"
+       rx="8"
+       fill="#FAECE7"
+       stroke="#993C1D"
+       stroke-width="0.5"
+       id="rect21" />
+    <text
+       x="510"
+       y="468"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="14"
+       font-weight="500"
+       fill="#4A1B0C"
+       id="text22">Dense sortie</text>
+    <text
+       x="510"
+       y="486"
+       text-anchor="middle"
+       dominant-baseline="central"
+       font-family="Arial, sans-serif"
+       font-size="12"
+       fill="#712B13"
+       id="text23">esite_predite</text>
+  </g>
+</svg>

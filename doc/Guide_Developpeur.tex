@@ -149,6 +149,44 @@
 \newpage
 \tableofcontents
 \newpage
+
+
+% ============================================================================
+% Chapitre XXX
+% ============================================================================
+\cprotect\chapter{Sauvegarde des données générées}
+\verb+ATOMOD+ génère un grand nombre de données différentes :
+\begin{itemize}
+	\item des nanoparticules \verb+NP+. Chacune d'elle est caractérisée par une liste d'atomes la composant. 
+	\item chacun de ces atomes est caractérisé lui-même par des données telles que
+	\begin{itemize}
+		\item sa nature chimique (chaine de caractère),
+		\item sa position (vecteur de dimension 3),
+		\item son énergie de site,
+		\item son nombre de coordination \verb+CN+, c'est à dire simplement le nombre de voisins directs de l'atome, sans aucune information sur la nature de ses voisins,
+		\item son nombre de coordination généralisé, \verb+GNN+, qui pondère le \verb+CN+  par le \verb+CN+ de chacun de ses voisins :
+		$$\mathrm{GCN}_i = \frac{1}{\mathrm{CN}_\mathrm{max}}  \sum_\mathrm{j\ voisin\ de\ i} \mathrm{CN}_j$$
+		\item la composition chimique de son environnement local,
+		\item son spectre EXAFS.
+	\end{itemize}
+\end{itemize}
+
+% ============================================================================
+% Chapitre XXX
+% ============================================================================
+\cprotect\chapter{Le modèle \verb+EXAFS+}
+
+Le modèle \verb+EXAFS+ génère des spectres EXAFS et l'énergie de site d'atomes à partir d'informations tels que leur nature chimique,   leur nombre de coordination et leur environnement local c'est à dire la fraction de chaque espèce dans la sphère de coordination. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{architecture_descripteurs_vers_exafs}
+	\caption[Architecture du modèle EXAFS.]{}
+	\label{fig:architecturedescripteursversexafs}
+\end{figure}
+
+Il s'agit d'une architecture encodeur dense $\rightarrow$ décodeur convolutif 1D.
+
 % ============================================================================
 % Chapitre XXX
 % ============================================================================

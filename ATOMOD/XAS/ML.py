@@ -37,4 +37,10 @@ def EXAFS_model(config):
     """
     Architecture : encodeur dense → décodeur convolutif 1D
     """
-    pass
+    # instantciation du modèle
+    # n_features est la dimension du vecteur de descripteurs en entrée du réseau, i.e. le nombre de valeurs numériques qui décrivent l'environnement atomique d'un atome donné.
+    # features_entree = ['CN', 'GCN'] + [f'frac_{e}' for e in especes] + espece_centrale_onehot
+
+    model=build_descripteur_vers_exafs(n_features,
+                                       config['exafs']['N_POINTS_EXAFS'],
+                                       n_especes=len(congig['NP']['structure']['composition']))

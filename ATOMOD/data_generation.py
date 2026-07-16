@@ -37,6 +37,7 @@ def alloy_stability(config,T=300):
     [A FAIRE] changer le nombre de particules 
     """
     # ----------------- Fonctions locales ------------------------
+        
     def init_configurations(config,nparticle):
         for seed in range(config['Alloy stability']['MC']['seed'],config['Alloy stability']['MC']['seed']+nparticle):
             NP.append(Crystal())
@@ -47,6 +48,7 @@ def alloy_stability(config,T=300):
             logger.info(f"Number of atoms={len(NP[-1].atoms)}")
             NP[-1].set_composition(config['NP']['structure']['composition'],seed=seed)
             NP[-1].optimize_ase(config)
+            compute_EXAFS_spectrum(config,NP[-1],feff_dir=config['run_dir']/config['simul_dir']/"feff_input_files")
             NP[-1].get_element_distribution()
         NP.append(copy.deepcopy(NP[0]))
         NP.append(copy.deepcopy(NP[1]))
@@ -124,20 +126,6 @@ def alloy_stability(config,T=300):
         return NP
 
     
-    def update_records(particule_idx,particule,records):
-        for i, atm in enumerate(particule.atoms):
-            records.append({
-                'particule_id': particule_idx,
-                'particule_composition': particule.chemical_formula,
-                'particule_Epot': particule.Epot/len(particule.atoms),
-                'particule_natom': len(particule.atoms),
-                'atome_idx': i,
-                'espece': atm.elt,
-                'CN': atm.CN,
-                'Esite': atm.Esite,
-                'local_composition':atm.local_composition,
-            })
-        return records
     # ---------------- Partie principale d'Alloy_stability ----------------------
 
     # --- initialisation des variables ----
@@ -201,6 +189,72 @@ def alloy_stability(config,T=300):
     df_save['local_composition'] = df_save['local_composition'].apply(json.dumps)
     
     df_save.to_parquet('nanoparticules_HEA_atomes.parquet', engine='pyarrow', compression='snappy')
+
+    
+# ##################################################################################
+def compute_EXAFS_spectrum(config,NP,feff_dir=Path("./")):
+    #feff_dir=config['run_dir']/config['simul_dir']/"feff_input_files"
+    base_dir=os.getcwd()
+    for atm in NP.atoms:
+        config['feff']['parameters']['input_save_dir']=f"{feff_dir}/{atm.elt}_{atm.idx}"
+        os.makedirs(config['feff']['parameters']['input_save_dir'], exist_ok=True)
+        os.chdir(f"{config['feff']['parameters']['input_save_dir']}")
+        NP.FEFF_create_input_file(config['feff']['parameters'],absorber_idx=atm.idx)
+        NP.FEFF_run(config['feff']['parameters'])
+        dossier = Path("./")
+        for element in dossier.iterdir():
+            if element.is_file() and element.name != "xmu.dat":
+                element.unlink()
+        os.chdir(base_dir)
+
+
+def update_records(particule_idx,particule,records,xmu_path=Path("./")):
+    """
+        records=[]
+    """
+    particule.chemical_formula=""
+    for elt in sorted(particule.list_elt):
+        particule.chemical_formula=f"{particule.chemical_formula}{elt}{len(particule.pos_elt[elt])}"
+
+    for i, atm in enumerate(particule.atoms):
+        records.append({
+            'particule_id': particule_idx,
+            'particule_composition': particule.chemical_formula,
+            'particule_Epot': particule.Epot/len(particule.atoms),
+            'particule_natom': len(particule.atoms),
+            'atome_idx': i,
+            'espece': atm.elt,
+            'CN': atm.CN,
+            'Esite': atm.Esite,
+            'local_composition':atm.local_composition,
+            'xmu_path':xmu_path/f"{atm.elt}_{i}",
+        })
+    return records
+
+# ##################################################################################
+def mk_in_silico_data_v2(config,idx):
+    ################################################################################
+    NP=[]
+    records=[]
+    NP.append(Crystal())
+    NP[-1].build(a=config['NP']['structure']['a'],
+                 radius=config['NP']['structure']['radius'],
+                 materials='NP')
+    NP[-1].origin_at_mass_center()
+    logger.info(f"Number of atoms={len(NP[-1].atoms)}")
+    NP[-1].set_composition(config['NP']['structure']['composition'],
+                           seed=config['NP']['seed'])
+    NP[-1].optimize_ase(config)
+    savedir=config['run_dir']/config['simul_dir']/str(idx)
+    NP[-1].save(prefix="NP",fmt='xyz',savedir=savedir)
+    compute_EXAFS_spectrum(config,NP[-1],feff_dir=savedir)
+    NP[-1].get_element_distribution()
+    records=update_records(idx,NP[-1],records,xmu_path=savedir)
+    for rec in records:
+        print(rec)
+
+    
+    
 
         
 # ##################################################################################
