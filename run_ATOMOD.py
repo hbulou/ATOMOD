@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Génération de données in silico ATOMOD")
+    parser.add_argument('--simul_dir', type=str, default="simul",
+                         help="Valeur de départ pour la plage de seeds (incluse)")
     parser.add_argument('--seed_start', type=int, default=0,
                          help="Valeur de départ pour la plage de seeds (incluse)")
     parser.add_argument('--seed_end', type=int, default=1,
@@ -123,7 +125,7 @@ def main():
                 'RPATH': 5.0,     # typique 2.2xdistance plus proches voisins. changer pour étudier la cvg des spectres
                 'EXAFS' : 20.0,   # xkmax - default 20 ang.^-1
                 'EDGE': {'Co':'K','Ni':'K','Ru':'K','Rh':'K','Pd':'K','Ir':'L3','Pt':'L3','Au':'L3'},
-                'RMAX':8.0,
+                'RMAX':8.0,      # RMAX sert à définir la distance maximale de diffusion (en Angströms) pour le calcul des chemins de diffusion du photo-électron.  
                 'feff_dir':  '/home/bulou/ownCloud/Notebooks/M2P2_HEA/Home/Modelisation/ATOMOD/JFEFF/feff90/unix/',
                 'feff_exec_dir': Path('/home/bulou/ownCloud/Notebooks/M2P2_HEA/Home/Modelisation/ATOMOD/JFEFF/feff90/unix/'),
                 'input_save_dir':'./',
@@ -149,15 +151,18 @@ def main():
 
     config['run_dir']=Path.cwd()
     config['feff']['parameters']['feff_dir']=config['run_dir']/'JFEFF/feff90/unix/'
-
+    #_______________________________________________________________________________
     if args.alloy_stability:
         from ATOMOD.data_generation import alloy_stability
         config['simul_dir']='Alloy_Stability3'
         alloy_stability(config)
+    #_______________________________________________________________________________
     if args.mk_in_silico_data:
         logger.info(f'{20*"#"} Make In Silico Data {20*"#"}')
         from ATOMOD.data_generation import mk_in_silico_data_v2
-        config['simul_dir']=Path('simulv2')
+        config['simul_dir']=Path(args.simul_dir)
+        config['feff']['parameters']['RPATH']=3.6
+        config['feff']['parameters']['RMAX']=config['feff']['parameters']['RPATH']
         savedir=config['run_dir']/config['simul_dir']
         if not savedir.exists():
             print(f"❌ Le répertoire n'existe pas")
@@ -173,16 +178,21 @@ def main():
             for subdir in sorted(subdirs):
                 print(f"  - {subdir}")
             idx=len(subdirs)
+        if args.seed_start>= args.seed_end:
+            args.seed_end=args.seed_start+1
         for seed in range(args.seed_start, args.seed_end):
             config['NP']['seed']=seed
             mk_in_silico_data_v2(config,idx)
             idx+=1
+    #_______________________________________________________________________________
     if args.clustering:
         from ATOMOD.MachineLearning import clustering
         clustering(config)
+    #_______________________________________________________________________________
     if args.exafs_model:
         logger.info(f'{20*"#"} EXAFS Modeling {20*"#"}')
         from ATOMOD.XAS.ML import EXAFS_model
+        config['simul_dir']=Path('simulv2')
         EXAFS_model(config)
 # #########################################################################################
 if __name__ == "__main__":

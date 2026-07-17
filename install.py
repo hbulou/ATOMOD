@@ -88,8 +88,9 @@ packages = [
     "pyarrow",
     "tensorflow",
     "scikit-learn",
-    "umpa-learn",
+    "umap-learn",
     "hdbscan",
+    "datetime",
 ]
 for pack in packages:
     subprocess.run([pip_venv, "install", "--no-cache-dir", pack], check=True)

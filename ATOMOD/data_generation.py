@@ -1,5 +1,6 @@
 import sys
 import os
+from datetime import datetime, timezone
 import random
 import numpy
 from collections import defaultdict
@@ -225,17 +226,65 @@ def update_records(particule_idx,particule,records,xmu_path=Path("./")):
             'atome_idx': i,
             'espece': atm.elt,
             'CN': atm.CN,
+            'GCN': atm.GCN,
             'Esite': atm.Esite,
             'local_composition':atm.local_composition,
-            'xmu_path':xmu_path/f"{atm.elt}_{i}",
+            'xmu_path':f"{xmu_path}/{atm.elt}_{i}/xmu.dat",
         })
     return records
+def add_particle(jsonl_path, input_nfo, add_timestamp=True, ajouter_si_absent_id=True):
+    """
+    Ajoute une entrée (dict) à la fin du fichier JSONL, sans réécrire le fichier entier.
+ 
+    Parameters
+    ----------
+    jsonl_path : str ou Path
+        Chemin du fichier .jsonl (créé s'il n'existe pas).
+    input : dict
+        Métadonnées de la particule (voir schéma dans le docstring du module).
+    add_timestamp : bool
+        Si True et si la clé 'date_generation' est absente, l'ajoute automatiquement (UTC, ISO 8601).
+    ajouter_si_absent_id : bool
+        Si True, vérifie que 'particule_id' n'existe pas déjà dans le fichier avant d'ajouter
+        (évite les doublons silencieux). Coûte une lecture complète du fichier existant.
+    """
+    input_nfo = dict(input_nfo)  # copie défensive
+ 
+    if add_timestamp and "date_generation" not in input_nfo:
+        input_nfo["date_generation"] = datetime.now(timezone.utc).isoformat()
+ 
+    jsonl_path = Path(jsonl_path)
+ 
+    if ajouter_si_absent_id and "particule_id" in input_nfo and jsonl_path.exists():
+        ids_existants = _lister_ids(jsonl_path)
+        if input_nfo["particule_id"] in ids_existants:
+            raise ValueError(
+                f"particule_id '{input_nfo['particule_id']}' already exists in {jsonl_path}"
+            )
+ 
+    with open(jsonl_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(input_nfo, ensure_ascii=False,indent="\t") + "\n")
 
+def _lister_ids(chemin_jsonl):
+    """Lecture rapide des seuls particule_id déjà présents (pour la vérification de doublons)."""
+    ids = set()
+    with open(chemin_jsonl, "r", encoding="utf-8") as f:
+        for ligne in f:
+            ligne = ligne.strip()
+            if not ligne:
+                continue
+            obj = json.loads(ligne)
+            if "particule_id" in obj:
+                ids.add(obj["particule_id"])
+    return ids
 # ##################################################################################
 def mk_in_silico_data_v2(config,idx):
     ################################################################################
     NP=[]
     records=[]
+    #__________________________________
+    # Construction of the nanoparticle
+    #__________________________________
     NP.append(Crystal())
     NP[-1].build(a=config['NP']['structure']['a'],
                  radius=config['NP']['structure']['radius'],
@@ -244,16 +293,44 @@ def mk_in_silico_data_v2(config,idx):
     logger.info(f"Number of atoms={len(NP[-1].atoms)}")
     NP[-1].set_composition(config['NP']['structure']['composition'],
                            seed=config['NP']['seed'])
+    #__________________________________
+    # structural optimization
+    #__________________________________
     NP[-1].optimize_ase(config)
+    NP[-1].get_element_distribution()
     savedir=config['run_dir']/config['simul_dir']/str(idx)
     NP[-1].save(prefix="NP",fmt='xyz',savedir=savedir)
+    #_________________________________________________________________________
+    # calculation of EXAFS spectra for each of the atoms constituting the NP
+    #_________________________________________________________________________
     compute_EXAFS_spectrum(config,NP[-1],feff_dir=savedir)
-    NP[-1].get_element_distribution()
-    records=update_records(idx,NP[-1],records,xmu_path=savedir)
-    for rec in records:
-        print(rec)
 
+
+    records=update_records(idx,NP[-1],records,xmu_path=savedir)
     
+    df = pd.DataFrame(records)
+    comp_df = pd.json_normalize(df['local_composition'])
+    comp_df.columns = [f'frac_{c}' for c in comp_df.columns]
+    df = pd.concat([df.reset_index(drop=True), comp_df], axis=1)
+    # Sérialiser local_composition (dict) en JSON string pour compatibilité Parquet
+    df_save = df.copy()
+    df_save['local_composition'] = df_save['local_composition'].apply(json.dumps)
+    df_save.to_parquet(savedir/'NP.parquet', engine='pyarrow', compression='snappy')
+
+
+ 
+    add_particle(f"{savedir}/NP.jsonl", {
+        "particule_id": idx,
+        'composition': NP[-1].chemical_formula,
+        'Epot': NP[-1].Epot/len(NP[-1].atoms),
+        'natom': len(NP[-1].atoms),
+        "seed": config['NP']['seed'],
+        "files": {
+            "xyz_file": "NP.xyz",
+            "parquet_file": "NP.parquet",
+        },
+    })
+
     
 
         

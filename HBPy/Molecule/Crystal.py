@@ -628,7 +628,6 @@ class Crystal:
         
         self.from_ase_Atoms(atoms,config)
         self.origin_at_mass_center()
-
     #________________________________________________________________________________        
     def NVT_Langevin_molecular_dynamics_ase(self,
                                             new_step=None,
@@ -902,27 +901,41 @@ class Crystal:
         for elt in composition:
             if elt not in self.pos_elt:
                 self.pos_elt[elt]=[]
-                #logger.info(f"### {elt} {self.pos_elt[elt]} -> stoechiometry {len(self.pos_elt[elt])/len(self.atoms)}")
-
-        random.seed(seed)
+                logger.info(f"### {elt} {self.pos_elt[elt]} -> stoechiometry {len(self.pos_elt[elt])/len(self.atoms)}")
         stoechiometry=1.0/len(composition)
         nmin=len(self.pos_elt[composition[0]])*stoechiometry
-        idxfill=1
-        while len(self.pos_elt[composition[0]])>nmin:
-            # on choisit au hasard un des atomes de l'espèce en excés
-            n = random.randrange(0, len(self.pos_elt[composition[0]]))   # 0 à 10 (11 exclu)
 
-            if len(self.pos_elt[composition[idxfill]])>=nmin:
-                idxfill=idxfill+1
-            idx=self.pos_elt[composition[0]].pop(n)
-            self.pos_elt[composition[idxfill]].append(idx)
-            self.atoms[idx].elt=composition[idxfill]
-        self.get_element_distribution()
+        random.seed(seed)
+        pos_elt_sorted = dict(sorted(self.pos_elt.items(), key=lambda item: len(item[1]), reverse=True))
+        elt = list(pos_elt_sorted.keys())
+        elt_max = elt[0]    # 'Pd' (longueur 4)
+        elt_min = elt[-1]   # 'Rh' (longueur 1)
+
+        while len(self.pos_elt[elt_max])-len(self.pos_elt[elt_min])>1:
+        #while not all(len(self.pos_elt[elt])  >= int(nmin) for elt in composition):
+            # On trie le dictionnaire (du plus grand au plus petit)
+            pos_elt_sorted = dict(sorted(self.pos_elt.items(), key=lambda item: len(item[1]), reverse=True))
+
+        
+            # Les clés aux extrémités sont le plus grand et le plus petit
+            elt = list(pos_elt_sorted.keys())
+            elt_max = elt[0]    # 'Pd' (longueur 4)
+            elt_min = elt[-1]   # 'Rh' (longueur 1)
+            print(pos_elt_sorted,len(self.pos_elt[elt_max])-len(self.pos_elt[elt_min]))            
+            #  On choisit un index au hasard dans le plus grand tableau
+            index_au_hasard = random.randrange(len(self.pos_elt[elt_max]))
+            
+            #  On retire l'élément de la liste d'origine (pop retire et renvoie l'élément)
+            atm_deplace = self.pos_elt[elt_max].pop(index_au_hasard)
+            
+            # 5. On l'ajoute dans le tableau le plus petit
+            self.pos_elt[elt_min].append(atm_deplace)
+            self.atoms[atm_deplace].elt=elt_min
+            #pos_elt_sorted = dict(sorted(self.pos_elt.items(), key=lambda item: len(item[1]), reverse=True))
+            #print(pos_elt_sorted)
+        print(pos_elt_sorted,len(self.pos_elt[elt_max])-len(self.pos_elt[elt_min]))            
         self.get_structure()
-
-
-
-
+        self.get_element_distribution()
 
     #________________________________________________________________________________
     def to_ase_Atoms(self,cell=(0,0,0),pbc=False):

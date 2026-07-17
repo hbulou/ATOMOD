@@ -176,7 +176,7 @@
 % ============================================================================
 \cprotect\chapter{Le modèle \verb+EXAFS+}
 
-Le modèle \verb+EXAFS+ génère des spectres EXAFS et l'énergie de site d'atomes à partir d'informations tels que leur nature chimique,   leur nombre de coordination et leur environnement local c'est à dire la fraction de chaque espèce dans la sphère de coordination. 
+Le modèle \verb+EXAFS+ est un décodeur/générateur qui génère des spectres EXAFS et l'énergie de site d'atomes à d'un vecteur de descripteurs tels que leur nature chimique, leur nombre de coordination et leur environnement local c'est à dire la fraction de chaque espèce dans la sphère de coordination. 
 
 \begin{figure}[H]
 	\centering
@@ -517,6 +517,17 @@ Afin de reproduire le signal expérimental (qui est une mesure macroscopique), l
 
 Le script \verb+jupyter+ \verb+tuto-mk_mean.ipynb+ illustre le "workflow" pour générer les signaux EXAFS émis par une nanoparticule d'alliage $AuPtCo$.
 
+Pour calculer les spectres, FEFF génère une liste de tous les chemins de diffusion possibles (simples et multiples) où l'électron quitte l'atome absorbeur, rebondit sur un ou plusieurs atomes voisins, puis revient.
+Le paramètre \verb+RMAX+ définit la limite géométrique de cette recherche : tout chemin dont la demi-longueur effective (la distance moyenne parcourue par l'électron) dépasse \verb+RMAX+ est ignoré et exclu du calcul.
+Il ne faut pas confondre \verb+RMAX+ et \verb+RPATH+ : \verb+RPATH+ contrôle jusqu'à quelle distance maximale le calcul complet de l'EXAFS va être mené, alors que \verb+RMAX+ est une limite stricte spécifiquement lue par le module de génération des chemins (\verb+path+) pour filtrer la géométrie avant d'estimer les amplitudes et les déphasages. Par défaut, si \verb+RMAX+ n'est pas explicitement spécifié dans ls fichier \verb+feff.inp+, FEFF utilise généralement la valeur de \verb+RPATH+.
+
+Plus \verb+RMAX+ augmente, plus le nombre de chemins de diffusion multiple (en particulier à 3 ou 4 corps) augmente de façon exponentielle. Pour une nanoparticule de 9 \AA\ (environ 216 atomes), un \verb+RMAX+ supérieur à 5 ou 6 \AA\ va considérablement ralentir le calcul.
+
+Pour l'EXAFS (oscillations), la première couche de coordination se situe généralement en dessous de 3 \AA, et la deuxième vers 4 à 5 \AA. Un \verb+RMAX+ de 5.0 \AA\ est parfait car il capture l'essentiel du signal mesurable expérimentalement tout en restant très rapide.  
+
+Pour le XANES (seuil d'absorption), la diffusion multiple à longue distance est cruciale. On utilise alors des valeurs de \verb+RMAX+ (ou de cluster \verb+FMS+) plus grandes pour bien reproduire la forme de la raie blanche.  
+
+Pour conserver un temps de calcul extrêmement court tout en préservant la physique essentielle du système, on peut réuire \verb+RPATH+ (et donc \verb+RMAX+) jusqu'à 3.0 \AA\ (ou au minimum 2.2 fois la distance du premier voisin, soit environ 3.1 \AA\ à 3.2 \AA\ pour les métaux de transition). En réalité, la limite physique absolue est la première couche de coordination aussi le premier pic majeur des spectre EXAFS (la première couche) se situe physiquement à une distance d'environ 2.5 \AA\ à 2.8 \AA\ pour les paires de type Ni-Ni, Ru-Ru, Ir-Ir, Rh-Ir, ou Pd-Au. En réglant \verb+RPATH+ 3.0 (ou 3.2), on limite le calcul strictement à cette première couche de voisins.  On capture parfaitement la liaison chimique directe, la distance interatomique moyenne $R$ du premier voisin, le nombre de coordination du premier voisin $N$, et l'effet thermique/statique associé ($\sigma^2$). C'est amplement suffisant pour une première analyse quantitative fiable.En revanche, en dessous de 4.5 \AA\, on perd les informations sur la deuxième couche de coordination (qui se situe généralement entre 3.6 \AA\ et 4.0 \AA). On supprime également  tous les chemins de diffusion multiple (les boucles à 3 ou 4 corps comme Absorbeur $\rightarrow$ Voisin 1 $\rightarrow$ Voisin 2 $\rightarrow$ Absorbeur). Du coup le spectre simulé sera plus "lisse" et perdra les petites oscillations secondaires à haute énergie. Pour un alliage désordonné (comme une particule désordonnée ou un HEA), ce n'est pas dramatique car le désordre structural atténue déjà très fortement ces contributions lointaines.  
 
 \cprotect\section{Structure du fichier de données générées par \verb+FEFF+}
 En sortie d'un calcul EXAFS (module final \verb+ff2x+), \verb+FEFF+ génère le fichier \verb+xmu.dat+.

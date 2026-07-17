@@ -1,0 +1,12 @@
+{
+	"particule_id": 2,
+	"composition": "Au4Co4Pd4Pt3Rh1",
+	"Epot": -4.444309234619141,
+	"natom": 16,
+	"seed": 5,
+	"files": {
+		"xyz_file": "NP.xyz",
+		"parquet_file": "NP.parquet"
+	},
+	"date_generation": "2026-07-17T07:45:44.436437+00:00"
+}

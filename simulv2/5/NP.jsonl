@@ -1,0 +1,12 @@
+{
+    "particule_id": 5,
+    "composition": "Au4Co4Pd4Pt3Rh1",
+    "Epot": -4.340931415557861,
+    "natom": 16,
+    "seed": 15,
+    "files": {
+	 "spectre_exafs": "spectres/hea_00001.h5",
+		 "image_tem": "tem/hea_00001.tif"
+		 },
+	"date_generation": "2026-07-16T14:22:59.979673+00:00"
+}
