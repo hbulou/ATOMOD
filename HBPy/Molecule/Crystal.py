@@ -9,7 +9,13 @@ import HBPy
 from HBPy.Molecule.Tools import FileInfo
 from HBPy.Molecule.Atom import Atom
 
-from mace.calculators import mace_mp
+MACE=os.getenv("HBPY_MACE","True")
+if MACE=="True":
+    from mace.calculators import mace_mp
+
+      
+
+
 import ase
 import ase.optimize
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution

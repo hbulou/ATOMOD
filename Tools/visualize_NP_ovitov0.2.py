@@ -39,8 +39,7 @@ from PySide6.QtGui import QFont, QColor
 # ═══════════════════════════════════════════════════════════════════════════
 # PARSING XYZ (conservé depuis votre script d'origine)
 # ═══════════════════════════════════════════════════════════════════════════
-
-def lire_xyz(chemin):
+def read_coordinates(chemin):
     lignes = Path(chemin).read_text(encoding='utf-8').strip().splitlines()
     try:
         n = int(lignes[0].strip())
@@ -108,7 +107,7 @@ class ViewerNP(QMainWindow):
         # ── Données : charger tous les pipelines SANS les ajouter à la scène
         self.structures = []
         for f in fichiers:
-            n, commentaire, atomes = lire_xyz(f)
+            n, commentaire, atomes = read_coordinates(f)
             stats = statistiques(atomes)
             pipeline = import_file(str(f))   # chargé mais PAS dans la scène
             self.structures.append({
@@ -356,11 +355,11 @@ Exemples :
   python visualize_NP_ovito.py data/xyz/
         """
     )
-    parser.add_argument('chemins', nargs='+',
+    parser.add_argument('path', nargs='+',
                         help='Fichier(s) .xyz ou dossier contenant des .xyz')
-    args = parser.parse_args()
 
-    fichiers = collecter_fichiers(args.chemins)
+    args = parser.parse_args()
+    fichiers = collecter_fichiers(args.path)
     if not fichiers:
         print("❌  Aucun fichier .xyz trouvé.")
         sys.exit(1)
