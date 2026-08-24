@@ -3,6 +3,11 @@ from sklearn.model_selection import train_test_split
 from pathlib import Path
 import os
 import json
+from sklearn.preprocessing import StandardScaler
+import numpy
+import matplotlib.pyplot as plt
+
+from Tools.Tools import resampling
 
 def load_particle(chemin_jsonl):
     """
@@ -84,18 +89,24 @@ def EXAFS_model(config):
     #________________________________________________________________________________________________________________________
 
     #df=load_particle("simulv3/0/NP.jsonl")
-    df = pd.concat(
+    NP = pd.concat(
         [
-            load_particle(f"simulv3/{idx}/NP.jsonl") for idx in range(8)
+            load_particle(f"simulv3/{idx}/NP.jsonl") for idx in range(10)
         ],
         ignore_index=True
     )
-    print(df)
+    print(NP)
+    particules_ids = NP['particule_id']
+
+    df = pd.concat([pd.read_parquet(config['run_dir']/config['simul_dir']/str(idx)/'NP.parquet', engine='pyarrow') for idx in particules_ids], ignore_index=True)
+    dfpart=df.loc[df['particule_id']==0]
+    print(dfpart.columns)
+    print(dfpart['xmu_path'])
+    s=resampling(dfpart['xmu_path'][0],colx=2,coly=5)
+    plt.plot(s[0],s[1])
+    plt.show()
     exit()
 
-
-    df = pd.concat([pd.read_parquet(config['run_dir']/config['simul_dir']/str(idx)/'NP.parquet', engine='pyarrow') for idx in [0,1,2,3,4]], ignore_index=True)
-    print(df)
     particule_id=0
     particules_uniques = df['particule_id'].unique()
     print(particules_uniques)
@@ -117,18 +128,77 @@ def EXAFS_model(config):
     """
     mask_train = df['particule_id'].isin(train_ids).values
     mask_val = df['particule_id'].isin(val_ids).values
-    print(mask_train)
-    print(mask_val)
+
+
+    """ Assemblage du vecteur de descripteurs X pour chaque atome de votre nanoparticule HEA. 
+    Elle fusionne trois blocs de features en un seul tableau. axis=1 : concaténation horizontale (par colonnes)
+              colonnes →
+             ┌──────────────┬──────────┬──────────────────────┐
+             │ espece_onehot│  X_geo   │    X_composition     │
+             │  (5 colonnes)│(2 col.)  │    (5 colonnes)      │
+             ├──────────────┼──────────┼──────────────────────┤
+    atome 0  │ 0 0 0 1 0    │ 8  5.2   │  0.2 0.1 0.3 0.2 0.2 │
+    atome 1  │ 1 0 0 0 0    │ 12 8.1   │  0.3 0.2 0.2 0.1 0.2 │
+    atome 2  │ 0 1 0 0 0    │ 6  4.0   │  0.1 0.4 0.1 0.2 0.2 │
+    ...      │ ...          │ ...      │ ...                  │
+             └──────────────┴──────────┴──────────────────────┘
+             └────────────────────────────────────────────────┘
+                      X  shape : (N_atomes, 12)
+
+    espece_onehot — qui est l'atome central (l'absorbeur EXAFS) :
+    #                                              ↑
+    #                               ['Au','Co','Pd','Pt','Rh']
+    # Atome Au → [1, 0, 0, 0, 0]
+    # Atome Rh → [0, 0, 0, 0, 1]
+    # Shape : (N_atomes, 5)
+    """
+    especes=config['NP']['structure']['composition']
+    espece_onehot = pd.get_dummies(df['espece'])[especes].values
+    
+    print(espece_onehot.shape)
+    print(df['espece'])
+    print(especes)
+    print(espece_onehot[-5:])
+    
+    """
+    X_geo — la géométrie locale de l'environnement, standardisée :
+    # CN  = nombre de voisins dans la 1ère sphère de coordination
+    # GCN = coordination généralisée (Calle-Vallejo, CN_max=12)
+    # Shape : (N_atomes, 2)
+
+    """
+    print(df[['CN', 'GCN']].values[-5:][:])
+    X_geo = StandardScaler().fit_transform(df[['CN', 'GCN']].values)
+    print(X_geo[-5:][:])
+
+
+    """
+    X_composition — la composition chimique de l'environnement local :
+    # frac_Rh = fraction de voisins Rh dans la 1ère sphère
+    # Shape : (N_atomes, 5)
+    """
+    X_composition = df[['frac_Au','frac_Co','frac_Pd','frac_Pt','frac_Rh']].values
+    print(X_composition[-5:][:])
+
+    """
+    X.shape = (N_atomes, 12)
+              └────────────┘
+               5 + 2 + 5 = 12 features par atome
+    """
+    X = numpy.concatenate([espece_onehot, X_geo, X_composition], axis=1)
+    print(X[-5:][:])
     """
     On utilise ces masques pour découper de façon cohérente (même lignes conservées partout) :
        * X : les descripteurs d'entrée,
        * Y_spectre_norm : les spectres EXAFS cibles (déjà normalisés, vu le suffixe _norm),
        * Y_esite : les valeurs cibles pour la sortie annexe esite_predite.
     """
-    #X_train, X_val = X[mask_train], X[mask_val]
+    X_train, X_val = X[mask_train], X[mask_val]
+    print(X_train[-5:][:])
+    print(X_val[-5:][:])
     #Y_spectre_train, Y_spectre_val = Y_spectre_norm[mask_train], Y_spectre_norm[mask_val]
     #Y_esite_train, Y_esite_val = Y_esite[mask_train], Y_esite[mask_val]
-
+    exit()
 
 
     """
@@ -138,9 +208,6 @@ def EXAFS_model(config):
     .values extrait le résultat en tableau numpy.
     Résultat : une matrice (n_échantillons, 5) où chaque ligne a un 1 à la position de l'espèce centrale et des 0 ailleurs. C'est l'encodage classique "one-hot" pour une variable catégorielle.
     """
-    especes=config['NP']['structure']['composition']
-    espece_onehot = pd.get_dummies(df['espece'])[especes].values
-    print(espece_onehot)
 
     frac_cols = [f'frac_{e}' for e in especes]
     X_composition = df[frac_cols].values

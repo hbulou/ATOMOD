@@ -192,7 +192,7 @@ def main():
     if args.exafs_model:
         logger.info(f'{20*"#"} EXAFS Modeling {20*"#"}')
         from ATOMOD.XAS.ML import EXAFS_model
-        config['simul_dir']=Path('simulv2')
+        config['simul_dir']=Path(args.simul_dir)
         EXAFS_model(config)
 # #########################################################################################
 if __name__ == "__main__":

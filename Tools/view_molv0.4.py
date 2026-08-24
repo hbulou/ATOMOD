@@ -22,6 +22,22 @@ import tempfile, os
 os.environ["HBPY_MACE"] = "False"
 
 import sys
+
+print("Répertoire du script:", os.path.dirname(os.path.abspath(__file__)))
+print("Répertoire courant:", os.getcwd())
+print("\nPremiers chemins de sys.path:")
+for p in sys.path[:5]:
+    print(f"  {p}")
+
+# Vérifier si ATOMOD est accessible
+atomod_parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(f"\nRépertoire parent: {atomod_parent}")
+print(f"Existe HBPy? {os.path.exists(os.path.join(atomod_parent, 'HBPy'))}")
+
+# Ajouter le répertoire parent (ATOMOD) à sys.path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 import subprocess
 
 import math
@@ -71,6 +87,7 @@ def read_file(args):
 def read_xyz_file(fichier):
     mol=HBPy.Molecule.Crystal.Crystal()
     mol.load_file(fichier)
+    #mol.Main_Axis()
     atoms=[]
     for atm in mol.atoms:
         atoms.append({
@@ -314,7 +331,7 @@ class PickOverlay(QWidget):
 
         idx, dist_min = self._atome_le_plus_proche(pos_ecran)
 
-        if dist_min > SEUIL:
+        if dist_min > self.SEUIL:
             self.status.setText(
                 f"⚠️  Aucun atome assez proche (dist NDC = {dist_min:.4f})"
             )
@@ -513,6 +530,8 @@ class FenetreViewer(QWidget):
         self.setWindowTitle(f"view_mol — {fichier}")
         self.resize(900, 700)
         self.atoms = atoms            # référence partagée avec l'overlay
+        self.vp = vp  
+
 
         # Référence mutable sur le pipeline (pour _rafraichir)
         self.pipeline_ref = [pipeline]
@@ -552,6 +571,16 @@ class FenetreViewer(QWidget):
         layout.addWidget(self.vp_widget, stretch=1)
         layout.addWidget(self.status)
 
+    def _to_HBPy(self):
+        mol=HBPy.Molecule.Crystal.Crystal()
+        for atm in self.atoms:
+            q=np.array([atm['x'],atm['y'],atm['z']])
+            mol.add_atom(elt=atm['elt'],q=q)
+
+        #for a,b in zip(mol.atoms,self.atoms):
+        #    print(a.mass,a.q,b)
+        return mol
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         # Garder l'overlay à la même taille que le widget OVITO
@@ -564,6 +593,13 @@ class FenetreViewer(QWidget):
         elif (event.key() == Qt.Key.Key_E and
               event.modifiers() & Qt.KeyboardModifier.ControlModifier):
             self._afficher_atomes()
+        elif event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            if event.key() == Qt.Key.Key_1:
+                self._aligner_axe(0)   # axe 1 : plus faible inertie (axe le plus LONG)
+            elif event.key() == Qt.Key.Key_2:
+                self._aligner_axe(1)   # axe 2 : inertie intermédiaire
+            elif event.key() == Qt.Key.Key_3:
+                self._aligner_axe(2)   # axe 3 : plus forte inertie (axe le plus COURT)
         else:
             super().keyPressEvent(event)
 
@@ -685,7 +721,56 @@ class FenetreViewer(QWidget):
 
         dlg.exec()
 
+    def _aligner_axe(self, idx_axe):
+        """
+        Ctrl+1/2/3 : orienter la caméra perpendiculairement à l'axe principal idx_axe.
+        
+        Convention OVITO :
+        camera_dir = direction de visée (vers la molécule)
+        camera_pos = position de la caméra dans l'espace
+        
+        Axe 0 → moment le plus faible  → axe le plus LONG de la molécule
+        Axe 1 → moment intermédiaire
+        Axe 2 → moment le plus élevé   → axe le plus COURT
+        """
+        if not self.atoms:
+            self.status.setText("⚠️  Aucun atome — impossible d'aligner")
+            return
+        print(idx_axe)
+        mol=self._to_HBPy()
+        print(mol.Main_Axis())
 
+        #moments, axes, centre = axes_principaux(self.atoms)
+        moments, axes, centre = mol.moments,mol.axis,mol.MC
+
+        # L'axe voulu : colonne idx_axe de la matrice axes
+        axe = axes[:, idx_axe]
+
+        # Distance caméra → centre de masse (conserver le zoom actuel)
+        cam_pos_actuel = np.array(self.vp.camera_pos, dtype=float)
+        distance = np.linalg.norm(cam_pos_actuel - centre)
+        if distance < 1.0:
+            distance = 30.0   # valeur par défaut si caméra au centre
+
+        # Placer la caméra le long de l'axe, regarder vers le centre
+        self.vp.camera_pos = tuple(centre + axe * distance)
+        self.vp.camera_dir = tuple(-axe)
+
+        # Recentrer le zoom
+        self.vp.zoom_all((self.vp_widget.width(), self.vp_widget.height()))
+
+        noms = {0: "long (axe 1)", 1: "intermédiaire (axe 2)", 2: "court (axe 3)"}
+        self.status.setText(
+            f"👁  Vue alignée sur l'axe {noms[idx_axe]}   "
+            f"|  moment = {moments[idx_axe]:.1f} u·Å²"
+        )
+
+        print(f"\n{'─'*50}")
+        print(f"Alignement axe {idx_axe+1}")
+        print(f"  Direction : {axe}")
+        print(f"  Moment    : {moments[idx_axe]:.2f} u·Å²")
+        print(f"  Centre    : {centre}")
+        print(f"{'─'*50}")
 # ═══════════════════════════════════════════════════════════════════════════
 # Point d'entrée
 # ═══════════════════════════════════════════════════════════════════════════

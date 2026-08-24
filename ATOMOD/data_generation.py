@@ -286,7 +286,8 @@ def mk_in_silico_data_v2(config,idx):
     # Construction of the nanoparticle
     #__________________________________
     NP.append(Crystal())
-    NP[-1].build(a=config['NP']['structure']['a'],
+    NP[-1].build(elt=config['NP']['structure']['composition'][random.randrange(0, len(config['NP']['structure']['composition']))],
+                 a=config['NP']['structure']['a'],
                  radius=config['NP']['structure']['radius'],
                  materials='NP')
     NP[-1].origin_at_mass_center()

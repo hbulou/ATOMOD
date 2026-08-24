@@ -76,6 +76,9 @@ class Crystal:
     #________________________________________________________________________________
         self.atoms=[]
         self.status = []
+        #self.MC=np.zeros(3)
+        #self.Inertial_Tensor=np.zeros((3, 3))
+        #self.mass
     #________________________________________________________________________________        
     def add_atom(self,elt='Au',q=[0.0,0.0,0.0]):
     #________________________________________________________________________________        
@@ -404,12 +407,6 @@ class Crystal:
             
         print(f"{self.list_elt}")
             
-    #________________________________________________________________________________        
-    def rm_atom(self,idx=-1):
-    #________________________________________________________________________________        
-        if idx>=0:
-            del self.atoms[idx]
-            print("removing ",idx)
 
     #________________________________________________________________________________        
     def energy(self,FF,callback=None):
@@ -815,17 +812,62 @@ class Crystal:
                     self.qmax[i]=atm.q[i]
 
     #________________________________________________________________________________        
-    def MassCenter(self,display=False):
+    def Main_Axis(self):
+        """
+        Calcule les axes principaux à partir de la liste d'atomes.
+        Retourne (moments, axes) triés du plus petit au plus grand.
+        """
+        self.MassCenter(display=True,use_mass=True)
+        self.Inertial_Tensor=np.zeros((3, 3))
+        mass=np.array([atm.mass for atm in self.atoms])
+
+        q=np.array([atm.q for atm in self.atoms])
+
+        r=q-self.MC
+
+        #for i,atm in enumerate(self.atoms):
+        #    print(atm.q-self.MC,atm.mass,r[i])
+        # Tenseur d'inertie 3×3
+        I = np.zeros((3, 3))
+        for mi, ri in zip(mass, r):
+            I[0, 0] += mi * (ri[1]**2 + ri[2]**2)
+            I[1, 1] += mi * (ri[0]**2 + ri[2]**2)
+            I[2, 2] += mi * (ri[0]**2 + ri[1]**2)
+            I[0, 1] -= mi * ri[0] * ri[1]
+            I[0, 2] -= mi * ri[0] * ri[2]
+            I[1, 2] -= mi * ri[1] * ri[2]
+            I[1, 0] = I[0, 1]
+            I[2, 0] = I[0, 2]
+            I[2, 1] = I[1, 2]
+
+        # Diagonalisation → valeurs propres (moments) + vecteurs propres (axes)
+        self.moments, self.axis = np.linalg.eigh(I)   # eigh car I est symétrique
+        print(I)
+        self.Inertial_Tensor=I
+        print(f"Centre de masse : {self.MC}")
+        print(f"Axe 1 : {self.axis[:, 0]}")   # colonnes = vecteurs propres
+        print(f"Axe 2 : {self.axis[:, 1]}")
+        print(f"Axe 3 : {self.axis[:, 2]}")
+
     #________________________________________________________________________________        
+    def MassCenter(self,display=False,use_mass=False):
+    #________________________________________________________________________________        
+        # Mass center: [-8.05008824 -0.13595882 -0.11965882]
+
         """ fonction calculant le centre de masse de la nanoparticule """
+        mass=len(self.atoms)
+        if use_mass:
+            mass=np.array([atm.mass for atm in self.atoms])
+        else:
+            mass=np.ones(len(self.atoms))
+            
         self.MC=np.zeros(3)
-        for i in range(len(self.atoms)):
-            for k in range(3):
-                self.MC[k]=self.MC[k]+self.atoms[i].q[k]
-        for k in range(3):
-            self.MC[k]=self.MC[k]/len(self.atoms)
+        for i,atm in enumerate(self.atoms):
+            self.MC=self.MC+mass[i]*atm.q
+        self.MC=self.MC/mass.sum()
+
         if display:
-            logger.info(f"Mass center: {self.MC}")
+            logger.info(f"Molecule mass: {mass.sum()}\nMass center: {self.MC}")
     #________________________________________________________________________________        
     def move_atoms(self,idx_t,dt=1.0):
     #________________________________________________________________________________        
@@ -850,6 +892,12 @@ class Crystal:
         #self.MassCenter()
         self.get_structure()
 
+    #________________________________________________________________________________        
+    def rm_atom(self,idx=-1):
+    #________________________________________________________________________________        
+        if idx>=0:
+            del self.atoms[idx]
+            print("removing ",idx)
     #________________________________________________________________________________        
     def save(self,prefix="crystal",fmt='xyz',savedir='./'):
     #________________________________________________________________________________
