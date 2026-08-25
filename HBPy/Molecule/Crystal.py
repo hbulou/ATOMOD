@@ -15,25 +15,32 @@ if MACE=="True":
 
       
 
-
-import ase
-import ase.optimize
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from ase.md.langevin import Langevin
-from ase import units
-from ase.neighborlist import NeighborList, natural_cutoffs
+ASE=os.getenv("HBPY_ASE","True")
+if ASE=="True":
+    import ase
+    import ase.optimize
+    from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
+    from ase.md.langevin import Langevin
+    from ase import units
+    from ase.neighborlist import NeighborList, natural_cutoffs
 
 import sys
 #sys.path.append('./lib/')
 #import abtem
 
-import abtem
+ABTEM=os.getenv("HBPY_ABTEM","True")
+if ABTEM=="True":
+    import abtem
 
 import copy
 import matplotlib
 matplotlib.use('Agg')  # Force un moteur graphique non-interactif et stable
 import matplotlib.pyplot as plt
-import pandas as pd
+
+PANDAS=os.getenv("HBPY_PANDAS","True")
+if PANDAS=="True":
+
+    import pandas as pd
 import random
 from itertools import islice
 #from mendeleev import element
@@ -76,6 +83,7 @@ class Crystal:
     #________________________________________________________________________________
         self.atoms=[]
         self.status = []
+        self.Epot=None
         #self.MC=np.zeros(3)
         #self.Inertial_Tensor=np.zeros((3, 3))
         #self.mass
@@ -849,6 +857,63 @@ class Crystal:
         print(f"Axe 2 : {self.axis[:, 1]}")
         print(f"Axe 3 : {self.axis[:, 2]}")
 
+    #________________________________________________________________________________
+
+    def align_principal_axes(self, center=None):
+    #________________________________________________________________________________        
+        """
+        Aligne les axes principaux d'une molécule sur les axes x, y, z.
+        
+        Parameters
+        ----------
+        coords : np.ndarray, shape (N, 3)
+            Coordonnées des atomes de la molécule.
+        principal_axes : np.ndarray, shape (3, 3)
+            Matrice dont les COLONNES sont les vecteurs propres (axes principaux),
+            typiquement obtenue via np.linalg.eigh(tensor_inertie).
+            Convention : principal_axes[:, i] est le i-ème axe principal.
+        center : np.ndarray, shape (3,), optional
+            Centre de rotation (ex: centre de masse ou barycentre).
+            Si None, le centroïde géométrique des coords est utilisé.
+        
+        Returns
+        -------
+        coords_aligned : np.ndarray, shape (N, 3)
+            Coordonnées après translation au centre puis rotation,
+            avec les axes principaux alignés sur (x, y, z).
+        R : np.ndarray, shape (3, 3)
+            Matrice de rotation appliquée (utile pour transformer d'autres
+            vecteurs, comme des vitesses ou des moments dipolaires).
+        """
+
+        coords = np.array([
+            atm.q for atm in self.atoms
+        ])
+        
+
+        print(coords) ; 
+        coords = np.asarray(coords, dtype=float)
+
+        if center is None:
+            center = coords.mean(axis=0)
+
+        # Translation : on ramène la molécule à l'origine
+        coords_centered = coords - center
+
+        # La matrice de rotation qui envoie les axes principaux sur (x,y,z)
+        # est la transposée (= inverse, car orthogonale) de la matrice des
+        # vecteurs propres : R @ axe_i = e_i
+        R = self.axis.T
+
+        # S'assurer que la base reste directe (déterminant = +1),
+        # sinon on obtient une réflexion au lieu d'une rotation pure.
+        if np.linalg.det(R) < 0:
+            R[-1, :] *= -1  # on inverse le dernier axe (souvent l'axe du moment le plus faible/fort selon convention)
+
+        coords_aligned = coords_centered @ R.T
+        for i,atm in enumerate(self.atoms):
+            atm.q=coords_aligned[i]
+        return coords_aligned, R
     #________________________________________________________________________________        
     def MassCenter(self,display=False,use_mass=False):
     #________________________________________________________________________________        
@@ -905,7 +970,12 @@ class Crystal:
         if fmt == 'xyz':
             f=open(f"{savedir}/{prefix}.xyz",'w')
             f.write(f"{len(self.atoms):d}\n")
-            f.write(f"epot= {self.Epot:e}\n")
+            if self.Epot is not None:
+                f.write(f"epot= {self.Epot:e}\n")
+            else:
+                f.write(f"\n")
+
+
             for atom in self.atoms:
                 f.write("%2s %12.6f %12.6f %12.6f\n"%(atom.elt,atom.q[0],atom.q[1],atom.q[2]))
             f.close()
